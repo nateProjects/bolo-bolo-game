@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>bolo'bolo</title>
+<style>
+  :root {
+    --bg: #1a1610; --bg2: #231e16; --bg3: #2e2820; --panel: #1e1a12;
+    --border: #4a3f2a; --text: #d4c8a8; --text2: #a89878;
+    --accent: #8fba60; --accent3: #6ab0b0; --warn: #c85a5a; --gold: #d4a830;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Courier New', Courier, monospace; font-size: 13px; line-height: 1.6; min-height: 100vh; }
+
+  #title-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; text-align: center; background: radial-gradient(ellipse at center, #2a2218 0%, #1a1610 70%); }
+  .title-box { border: 1px solid var(--border); padding: 0.8rem 2rem; margin-bottom: 1.5rem; font-size: 11px; color: var(--text2); font-style: italic; max-width: 480px; }
+  .title-main { font-size: 2.6rem; color: var(--text); letter-spacing: 0.15em; margin-bottom: 0.3rem; }
+  .title-sub { color: var(--text2); font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; margin-bottom: 1.8rem; }
+
+  .nima-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; max-width: 800px; width: 100%; margin-bottom: 1.3rem; }
+  .nima-card { border: 1px solid var(--border); padding: 0.7rem; cursor: pointer; background: var(--panel); text-align: left; transition: border-color 0.15s, background 0.15s; }
+  .nima-card:hover { border-color: var(--accent); background: var(--bg3); }
+  .nima-card.selected { border-color: var(--gold); background: var(--bg3); }
+  .nima-name { color: var(--accent); font-weight: bold; margin-bottom: 0.2rem; font-size: 12px; }
+  .nima-desc { color: var(--text2); font-size: 11px; }
+  .nima-bonus { color: var(--accent3); font-size: 11px; margin-top: 0.2rem; }
+
+  .name-row { margin-bottom: 1rem; color: var(--text2); font-size: 12px; }
+  .name-row input { background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: 'Courier New', monospace; font-size: 13px; padding: 0.3rem 0.6rem; width: 200px; outline: none; margin-left: 0.5rem; }
+  .name-row input:focus { border-color: var(--accent); }
+
+  .btn { background: none; border: 1px solid var(--accent); color: var(--accent); font-family: 'Courier New', monospace; font-size: 13px; padding: 0.55rem 2rem; cursor: pointer; letter-spacing: 0.1em; transition: all 0.15s; }
+  .btn:hover { background: var(--accent); color: var(--bg); }
+
+  #game { display: none; max-width: 1100px; margin: 0 auto; padding: 1rem; }
+
+  .game-header { border-bottom: 1px solid var(--border); padding-bottom: 0.6rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .gh-title { color: var(--text2); }
+  .gh-name { color: var(--accent); font-weight: bold; }
+  .gh-nima { font-size: 10px; border: 1px solid var(--accent3); color: var(--accent3); padding: 0 0.4rem; }
+  .gh-phase { margin-left: auto; color: var(--text2); font-size: 11px; letter-spacing: 0.1em; }
+
+  .phase-banner { display: none; border: 1px solid var(--gold); background: var(--bg3); padding: 0.6rem 1rem; color: var(--gold); text-align: center; font-size: 1rem; letter-spacing: 0.1em; margin-bottom: 1rem; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 230px 1fr 230px;
+    gap: 1rem;
+    align-items: start;
+  }
+  .col { display: flex; flex-direction: column; gap: 1rem; }
+
+  /* Mobile: single column with configurable order */
+  @media (max-width: 600px) {
+    .layout {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    /* Dissolve column wrappers so panels become direct flex children */
+    .col {
+      display: contents;
+    }
+    .layout > .col > * {
+      width: 100%;
+      box-sizing: border-box;
+      margin-bottom: 1rem;
+    }
+    /* All variants share the same lower items */
+    [data-mobile="taku"]       { order: 5; }
+    [data-mobile="machine"]    { order: 6; }
+    [data-mobile="region"]     { order: 7; }
+    [data-mobile="nima"]       { order: 8; }
+
+    /* Variant A: actions, resources, stats, dispatches */
+    .layout.mobile-a [data-mobile="actions"]    { order: 1; }
+    .layout.mobile-a [data-mobile="resources"]  { order: 2; }
+    .layout.mobile-a [data-mobile="stats"]      { order: 3; }
+    .layout.mobile-a [data-mobile="dispatches"] { order: 4; }
+
+    /* Variant B: actions, stats, dispatches, resources */
+    .layout.mobile-b [data-mobile="actions"]    { order: 1; }
+    .layout.mobile-b [data-mobile="stats"]      { order: 2; }
+    .layout.mobile-b [data-mobile="dispatches"] { order: 3; }
+    .layout.mobile-b [data-mobile="resources"]  { order: 4; }
+
+    /* Variant C: actions, resources, dispatches, stats */
+    .layout.mobile-c [data-mobile="actions"]    { order: 1; }
+    .layout.mobile-c [data-mobile="resources"]  { order: 2; }
+    .layout.mobile-c [data-mobile="dispatches"] { order: 3; }
+    .layout.mobile-c [data-mobile="stats"]      { order: 4; }
+  }
+  .panel { border: 1px solid var(--border); background: var(--panel); padding: 0.9rem; margin-bottom: 1rem; }
+  .panel:last-child { margin-bottom: 0; }
+  .panel-title { color: var(--text2); font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; margin-bottom: 0.7rem; }
+
+  .res-row { display: flex; justify-content: space-between; padding: 0.15rem 0; border-bottom: 1px solid #2a2518; font-size: 12px; }
+  .res-lbl { color: var(--text2); }
+  .res-lbl b { color: var(--accent3); font-weight: bold; }
+  .res-val { color: var(--text); font-weight: bold; }
+  .res-rate { color: var(--text2); font-size: 10px; }
+  .bw { height: 3px; background: var(--bg3); margin: 2px 0 5px; }
+  .bar { height: 100%; background: var(--accent); transition: width 0.3s; max-width: 100%; }
+  .bar.blue { background: var(--accent3); }
+  .bar.gold { background: var(--gold); }
+  .bar.red { background: var(--warn); }
+
+  .machine-label { font-size: 11px; color: var(--text2); margin-bottom: 3px; display: flex; justify-content: space-between; }
+
+  .sec-lbl { font-size: 10px; color: var(--text2); letter-spacing: 0.2em; text-transform: uppercase; margin: 0.6rem 0 0.3rem; }
+  .act-btn { background: none; border: 1px solid var(--border); color: var(--text); font-family: 'Courier New', monospace; font-size: 12px; padding: 0.35rem 0.5rem; cursor: pointer; width: 100%; text-align: left; margin-bottom: 0.35rem; display: flex; justify-content: space-between; transition: border-color 0.1s, color 0.1s; }
+  .act-btn:hover:not([disabled]) { border-color: var(--accent); color: var(--accent); }
+  .act-btn[disabled] { opacity: 0.3; cursor: not-allowed; }
+  .act-btn.warn-btn:hover:not([disabled]) { border-color: var(--warn); color: var(--warn); }
+  .act-btn.gold-btn:hover:not([disabled]) { border-color: var(--gold); color: var(--gold); }
+  .act-cost { color: var(--text2); font-size: 11px; }
+
+  .world-map { display: grid; grid-template-columns: repeat(8, 1fr); gap: 1px; padding: 0.3rem 0; }
+  .dot { width: 100%; aspect-ratio: 1; border: 1px solid var(--border); background: var(--bg3); display: flex; align-items: center; justify-content: center; font-size: 7px; transition: all 0.3s; }
+  .dot.yours  { background: var(--accent);  border-color: var(--accent);  color: var(--bg); }
+  .dot.allied { border-color: var(--accent3); color: var(--accent3); }
+  .dot.trico  { border-color: var(--gold);    color: var(--gold); }
+  .dot.free   { border-color: var(--accent);  color: var(--accent); opacity: 0.4; }
+  .dot.bandit { background: var(--warn);       border-color: var(--warn); color: var(--bg); }
+  .map-legend { font-size: 10px; color: var(--text2); margin-top: 0.3rem; }
+  .map-legend span { margin-right: 0.7rem; }
+
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem; }
+  .stat-box { border: 1px solid var(--border); padding: 0.5rem; text-align: center; }
+  .stat-val { font-size: 1.3rem; font-weight: bold; color: var(--text); }
+  .stat-lbl { font-size: 10px; color: var(--text2); }
+
+  .log-box { height: 115px; overflow-y: auto; font-size: 11px; line-height: 1.5; padding: 0.4rem; background: var(--bg); }
+  .log-entry { margin-bottom: 0.12rem; }
+  .log-ts { color: var(--text2); }
+  .log-entry.good .log-msg { color: var(--accent); }
+  .log-entry.bad  .log-msg { color: var(--warn); }
+  .log-entry.spec .log-msg { color: var(--gold); }
+  .log-entry.ital .log-msg { color: var(--text2); font-style: italic; }
+
+  /* ── INSTRUCTIONS ── */
+  #instructions { display: none; max-width: 760px; margin: 0 auto; padding: 2rem 1.5rem; }
+  .instr-header { text-align: center; padding: 2rem 0 1.5rem; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
+  .instr-title { font-size: 1.8rem; letter-spacing: 0.15em; color: var(--text); margin-bottom: 0.3rem; }
+  .instr-sub { font-size: 11px; color: var(--text2); letter-spacing: 0.2em; text-transform: uppercase; }
+
+  .instr-section { margin-bottom: 2rem; }
+  .instr-section-title { font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--accent3); border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; margin-bottom: 1rem; }
+  .instr-body { font-size: 12px; color: var(--text2); line-height: 1.8; margin-bottom: 0.8rem; }
+  .instr-body b { color: var(--text); }
+  .instr-body em { color: var(--accent3); font-style: normal; }
+
+  /* Mini demo panels */
+  .demo-row { display: flex; gap: 0.8rem; flex-wrap: wrap; margin: 0.8rem 0; }
+  .demo-panel { border: 1px solid var(--border); background: var(--panel); padding: 0.6rem 0.8rem; font-size: 11px; flex: 1; min-width: 160px; }
+  .demo-title { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text2); border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; margin-bottom: 0.5rem; }
+  .demo-res-row { display: flex; justify-content: space-between; padding: 0.1rem 0; font-size: 11px; }
+  .demo-res-lbl { color: var(--text2); }
+  .demo-res-lbl b { color: var(--accent3); }
+  .demo-res-val { color: var(--text); font-weight: bold; }
+  .demo-bw { height: 3px; background: var(--bg3); margin: 2px 0 4px; }
+  .demo-bar { height: 100%; }
+
+  .demo-map { display: grid; grid-template-columns: repeat(8, 1fr); gap: 1px; margin: 0.4rem 0; }
+  .demo-dot { aspect-ratio: 1; border: 1px solid var(--border); background: var(--bg3); display: flex; align-items: center; justify-content: center; font-size: 7px; }
+  .demo-dot.yours  { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+  .demo-dot.allied { border-color: var(--accent3); color: var(--accent3); }
+  .demo-dot.trico  { border-color: var(--gold); color: var(--gold); }
+  .demo-dot.free   { border-color: var(--accent); color: var(--accent); opacity: 0.5; }
+  .demo-dot.bandit { background: var(--warn); border-color: var(--warn); color: var(--bg); }
+
+  .demo-log { background: var(--bg); padding: 0.4rem; font-size: 11px; line-height: 1.5; }
+  .demo-log-good { color: var(--accent); }
+  .demo-log-bad  { color: var(--warn); }
+  .demo-log-spec { color: var(--gold); }
+  .demo-log-ital { color: var(--text2); font-style: italic; }
+  .demo-log-ts   { color: var(--text2); }
+
+  .demo-btn { background: none; border: 1px solid var(--border); color: var(--text); font-family: 'Courier New', monospace; font-size: 11px; padding: 0.3rem 0.5rem; width: 100%; text-align: left; margin-bottom: 0.3rem; display: flex; justify-content: space-between; }
+  .demo-btn.green { border-color: var(--accent); color: var(--accent); }
+  .demo-btn.gold  { border-color: var(--gold); color: var(--gold); }
+  .demo-btn.warn  { border-color: var(--warn); color: var(--warn); }
+  .demo-btn.dim   { opacity: 0.3; }
+  .demo-cost { color: var(--text2); font-size: 10px; }
+
+  .phase-chip { display: inline-block; border: 1px solid var(--gold); color: var(--gold); font-size: 10px; padding: 0.1rem 0.5rem; letter-spacing: 0.1em; margin: 0.2rem 0.2rem 0.2rem 0; }
+  .danger-chip { display: inline-block; border: 1px solid var(--warn); color: var(--warn); font-size: 10px; padding: 0.1rem 0.5rem; margin: 0.2rem 0.2rem 0.2rem 0; }
+  .good-chip  { display: inline-block; border: 1px solid var(--accent); color: var(--accent); font-size: 10px; padding: 0.1rem 0.5rem; margin: 0.2rem 0.2rem 0.2rem 0; }
+
+  .instr-footer { text-align: center; padding: 2rem 0 1rem; border-top: 1px solid var(--border); margin-top: 1rem; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+  .btn-ghost { background: none; border: 1px solid var(--border); color: var(--text2); font-family: 'Courier New', monospace; font-size: 13px; padding: 0.55rem 1.5rem; cursor: pointer; letter-spacing: 0.1em; transition: all 0.15s; }
+  .btn-ghost:hover { border-color: var(--text2); color: var(--text); }
+</style>
+</head>
+<body>
+
+<div id="title-screen">
+  <div class="title-box">
+    every ibu is alone. it builds a world to hide in.<br>
+    the machine grinds on. but somewhere, people are<br>
+    planting gardens and feeding strangers.
+  </div>
+  <div class="title-main">bolo'bolo</div>
+  <div class="title-sub">a modest utopia in idle time</div>
+  <div style="color:var(--text2);font-size:12px;margin-bottom:1.2rem;">
+    Choose your <strong style="color:var(--accent3)">nima</strong> — your bolo's cultural identity.
+  </div>
+  <div class="nima-grid" id="nima-grid"></div>
+  <div class="name-row">
+    Name your bolo:
+    <input type="text" id="bolo-name-input" maxlength="20" placeholder="e.g. Mutum Biyu" />
+  </div>
+  <label style="display:flex;align-items:center;gap:0.5rem;color:var(--text2);font-size:12px;margin-bottom:1.2rem;cursor:pointer;">
+    <input type="checkbox" id="asapili-check" checked style="accent-color:var(--accent3);width:14px;height:14px;cursor:pointer;" />
+    <span>use <strong style="color:var(--accent3)">asa'pili</strong> language <span style="color:var(--text2);font-style:italic;">(bolo words first, english in brackets)</span></span>
+  </label>
+  <button class="btn" id="start-btn">found the bolo</button>
+  <div style="margin-top:1rem;">
+    <button class="btn-ghost" id="instr-btn">how to play</button>
+  </div>
+</div>
+
+<!-- INSTRUCTIONS -->
+<div id="instructions">
+  <div class="instr-header">
+    <div class="instr-title">bolo'bolo</div>
+    <div class="instr-sub">how to play — a field guide for the new ibu</div>
+  </div>
+
+  <!-- SETTING -->
+  <div class="instr-section">
+    <div class="instr-section-title">setting</div>
+    <div class="instr-body">
+      You are an <em>ibu</em> — a person — living under the <b>Planetary Work Machine</b>: a global system of wage labour, nation-states, and commodity exchange that controls nearly everything. You decide to withdraw from it.
+    </div>
+    <div class="instr-body">
+      You found a <em>bolo</em> — a self-sufficient community of roughly 300–500 people. Together you grow food (<em>kodu</em>), build tools and shelter (<em>sibi</em>), cultivate a cultural identity (<em>nima</em>), and offer hospitality to strangers (<em>sila</em>). Your reputation in the wider world is your <em>munu</em>.
+    </div>
+    <div class="instr-body">
+      Based on the 1983 anarchist utopian text <b>bolo'bolo</b> by P.M. The goal is not conquest. It is simply — quietly, persistently — to build something better.
+    </div>
+  </div>
+
+  <!-- RESOURCES -->
+  <div class="instr-section">
+    <div class="instr-section-title">resources</div>
+    <div class="instr-body">These six resources form the foundation of your bolo. Watch them in the left panel.</div>
+    <div class="demo-row">
+      <div class="demo-panel" style="min-width:220px;">
+        <div class="demo-title">resources</div>
+        <div class="demo-res-row"><span class="demo-res-lbl"><b>ibu</b> (people)</span><span class="demo-res-val">12</span></div>
+        <div class="demo-bw"><div class="demo-bar" style="width:24%;background:var(--accent)"></div></div>
+        <div class="demo-res-row"><span class="demo-res-lbl"><b>kodu</b> (food)</span><span class="demo-res-val">84 <span style="font-size:10px;color:var(--text2)">+1.4/s</span></span></div>
+        <div class="demo-bw"><div class="demo-bar" style="width:42%;background:var(--accent)"></div></div>
+        <div class="demo-res-row"><span class="demo-res-lbl"><b>sibi</b> (tools)</span><span class="demo-res-val">31</span></div>
+        <div class="demo-bw"><div class="demo-bar" style="width:31%;background:var(--accent3)"></div></div>
+        <div class="demo-res-row"><span class="demo-res-lbl"><b>munu</b> (reputation)</span><span class="demo-res-val">47</span></div>
+        <div class="demo-bw"><div class="demo-bar" style="width:9%;background:var(--gold)"></div></div>
+        <div class="demo-res-row"><span class="demo-res-lbl"><b>sila</b> (hospitality)</span><span class="demo-res-val">18</span></div>
+        <div class="demo-bw"><div class="demo-bar" style="width:36%;background:var(--accent3)"></div></div>
+      </div>
+      <div class="demo-panel" style="flex:2;">
+        <div class="demo-title">what each resource does</div>
+        <div class="demo-res-row" style="display:block;padding:0.15rem 0;border-bottom:1px solid #2a2518;"><b style="color:var(--accent3)">ibu</b> — each person increases your passive kodu rate. More ibu = faster growth, but more mouths to feed.</div>
+        <div class="demo-res-row" style="display:block;padding:0.15rem 0;border-bottom:1px solid #2a2518;"><b style="color:var(--accent3)">kodu</b> — food. Spent on welcoming ibu, offering hospitality. Runs out = ibu leave.</div>
+        <div class="demo-res-row" style="display:block;padding:0.15rem 0;border-bottom:1px solid #2a2518;"><b style="color:var(--accent3)">sibi</b> — tools and shelter. Spent on expanding farms and spreading reputation.</div>
+        <div class="demo-res-row" style="display:block;padding:0.15rem 0;border-bottom:1px solid #2a2518;"><b style="color:var(--accent3)">munu</b> — reputation. Decays slowly. Required for exchange networks. The currency of trust.</div>
+        <div class="demo-res-row" style="display:block;padding:0.15rem 0;"><b style="color:var(--accent3)">sila</b> — hospitality capacity. Travelers arrive automatically when sila ≥ 5, earning munu.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOW TO PLAY -->
+  <div class="instr-section">
+    <div class="instr-section-title">actions — how to play</div>
+    <div class="instr-body">Click the action buttons on the right. Each costs resources and produces effects. New actions unlock as you progress.</div>
+    <div class="demo-row">
+      <div class="demo-panel">
+        <div class="demo-title">phase i — founding</div>
+        <div class="demo-btn green"><span>farm the land (kodu)</span><span class="demo-cost">5 tools</span></div>
+        <div class="demo-btn green"><span>build tools/shelter (sibi)</span><span class="demo-cost">20 food</span></div>
+        <div class="demo-btn green"><span>welcome a person (ibu)</span><span class="demo-cost">15 food</span></div>
+        <div class="demo-btn"><span>offer hospitality (sila)</span><span class="demo-cost">10 food</span></div>
+        <div class="demo-btn"><span>spread reputation (munu)</span><span class="demo-cost">5 tools</span></div>
+      </div>
+      <div class="demo-panel">
+        <div class="demo-title">phase ii — exchange (unlocked)</div>
+        <div class="demo-btn dim"><span>form exchange triangle (trico)</span><span class="demo-cost">30 rep</span></div>
+        <div class="demo-btn dim"><span>barter agreement (feno)</span><span class="demo-cost">20 rep</span></div>
+        <div style="margin-top:0.6rem;" class="demo-title">phase iii — organizing (unlocked)</div>
+        <div class="demo-btn gold dim"><span>form district (tega)</span><span class="demo-cost">5 trico</span></div>
+        <div class="demo-btn gold dim"><span>declare region (sumi)</span><span class="demo-cost">3 tega</span></div>
+        <div class="demo-btn gold dim"><span>establish world council (asa'dala)</span><span class="demo-cost">3 sumi</span></div>
+      </div>
+    </div>
+    <div class="instr-body" style="margin-top:0.5rem;">
+      <b>Greyed out</b> buttons mean you lack the resources. <b>Gold</b> buttons are major structural moves. Actions unlock progressively — you won't see later options until you've earned them.
+    </div>
+  </div>
+
+  <!-- REGION MAP -->
+  <div class="instr-section">
+    <div class="instr-section-title">the region map</div>
+    <div class="instr-body">The 64-cell map shows the state of your region. The machine starts dominant. You gradually reclaim it.</div>
+    <div class="demo-row" style="align-items:flex-start;">
+      <div class="demo-panel" style="max-width:200px;">
+        <div class="demo-title">region — 6 bolos, 3 free</div>
+        <div class="demo-map">
+          <div class="demo-dot yours">●</div><div class="demo-dot trico">◆</div><div class="demo-dot trico">◆</div><div class="demo-dot allied">○</div><div class="demo-dot"></div><div class="demo-dot"></div><div class="demo-dot"></div><div class="demo-dot"></div>
+          <div class="demo-dot allied">○</div><div class="demo-dot free">◌</div><div class="demo-dot free">◌</div><div class="demo-dot"></div><div class="demo-dot"></div><div class="demo-dot bandit">x</div><div class="demo-dot"></div><div class="demo-dot"></div>
+          <div class="demo-dot"></div><div class="demo-dot"></div><div class="demo-dot"></div><div class="demo-dot"></div><div class="demo-dot"></div><div class="demo-dot"></div><div class="demo-dot"></div><div class="demo-dot"></div>
+          <div class="demo-dot"></div><div class="demo-dot"></div><div class="demo-dot"></div><div class="demo-dot"></div><div class="demo-dot"></div><div class="demo-dot"></div><div class="demo-dot"></div><div class="demo-dot"></div>
+        </div>
+        <div style="font-size:10px;color:var(--text2);margin-top:0.3rem;">
+          <span style="color:var(--accent)">■ yours</span>
+          <span style="color:var(--accent3);margin-left:0.4rem">■ allied</span>
+          <span style="color:var(--gold);margin-left:0.4rem">■ trico</span><br>
+          <span style="color:var(--warn)">■ bandit</span>
+          <span style="color:var(--border);margin-left:0.4rem">■ machine</span>
+          <span style="color:var(--accent);opacity:0.5;margin-left:0.4rem">■ free</span>
+        </div>
+      </div>
+      <div class="demo-panel" style="flex:2;">
+        <div class="demo-title">what the cells mean</div>
+        <div style="font-size:11px;line-height:1.8;">
+          <div><b style="color:var(--accent)">● yours</b> — your founding bolo. Always present.</div>
+          <div><b style="color:var(--accent3)">○ allied</b> — bolos brought in by forming a tega (district).</div>
+          <div><b style="color:var(--gold)">◆ trico</b> — bolos connected by exchange triangles.</div>
+          <div><b style="color:var(--accent);opacity:0.6">◌ free</b> — zones liberated from the machine entirely.</div>
+          <div><b style="color:var(--warn)">x bandit</b> — predatory bolo. Raiding your food. Issue a yaka.</div>
+          <div><b style="color:var(--border)">· machine</b> — still under control. The machine's grip: 95% at start.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASES / GOALS -->
+  <div class="instr-section">
+    <div class="instr-section-title">aim — the three phases</div>
+    <div class="instr-body">The game progresses through three phases. Each unlocks new actions and expands the scale of what's possible.</div>
+
+    <div style="margin-bottom:1rem;">
+      <div class="phase-chip">PHASE I — THE FOUNDING BOLO</div>
+      <div class="instr-body">Build your food supply, welcome ibu, offer hospitality to travelers. <b>Unlock Phase II</b> by hosting 3 travelers or accumulating 15 munu.</div>
+    </div>
+    <div style="margin-bottom:1rem;">
+      <div class="phase-chip">PHASE II — THE EXCHANGE NETWORK</div>
+      <div class="instr-body">Form <em>trico</em> exchange triangles between bolos. Establish <em>feno</em> barter agreements for passive bonuses. <b>Unlock Phase III</b> by forming 3 trico.</div>
+    </div>
+    <div style="margin-bottom:1rem;">
+      <div class="phase-chip">PHASE III — REGIONAL COOPERATION</div>
+      <div class="instr-body">Build <em>tega</em> districts (5 trico each), declare <em>sumi</em> regions (3 tega each), and ultimately establish the <em>asa'dala</em> — the world council — with 3 sumi. The machine's grip reaches zero. <b>bolo'bolo.</b></div>
+    </div>
+
+    <div class="demo-row">
+      <div class="demo-panel">
+        <div class="demo-title">the machine — your pressure gauge</div>
+        <div class="machine-label" style="font-size:11px;color:var(--text2);margin-bottom:3px;display:flex;justify-content:space-between;"><span>grip on your region</span><span>62%</span></div>
+        <div class="demo-bw" style="height:7px;"><div class="demo-bar" style="width:62%;background:var(--warn)"></div></div>
+        <div style="font-size:10px;color:var(--text2);text-align:right;">weakening</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:0.5rem;">Starts at 95%. Every trico, tega, and sumi reduces it. Below 30%, it fights back — reclaiming free cells. Reach 0% to win.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DANGERS -->
+  <div class="instr-section">
+    <div class="instr-section-title">dangers</div>
+    <div class="instr-body">Things will go wrong. Watch the <b>Dispatches</b> panel — all warnings appear there in <span class="demo-log-bad">red</span>.</div>
+
+    <div class="demo-row">
+      <div class="demo-panel">
+        <div class="demo-title">example dispatches</div>
+        <div class="demo-log">
+          <div><span class="demo-log-ts">[142]</span> <span class="demo-log-bad">⚠ Food runs out. An ibu drifts away.</span></div>
+          <div><span class="demo-log-ts">[380]</span> <span class="demo-log-bad">⚠ A bandit-bolo emerges. They are raiding your food stores.</span></div>
+          <div><span class="demo-log-ts">[512]</span> <span class="demo-log-bad">⚠ Bad harvest — blight in the fields. Food production falls sharply.</span></div>
+          <div><span class="demo-log-ts">[614]</span> <span class="demo-log-ital">The kodu recovers. Normal production resumes.</span></div>
+          <div><span class="demo-log-ts">[890]</span> <span class="demo-log-bad">⚠ The machine reasserts itself — 2 zones reclaimed.</span></div>
+          <div><span class="demo-log-ts">[1102]</span> <span class="demo-log-good">The bandit-bolo dissolves. Predation proved unprofitable.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:0.8rem;">
+      <div class="danger-chip">kodu shortage</div>
+      <div class="instr-body">If food hits zero, ibu begin leaving — one every 6 seconds. The kodu bar turns red. Farm immediately.</div>
+
+      <div class="danger-chip">ibu drift</div>
+      <div class="instr-body">When kodu is very low (below 10% of capacity), ibu occasionally slip away even before you hit zero. An early warning.</div>
+
+      <div class="danger-chip">bandit-bolo</div>
+      <div class="instr-body">Appear in Phase II onward. Drain your food continuously. Issue a <b>yaka (challenge)</b> — costs 10 munu — and they dissolve within seconds. Don't ignore them.</div>
+
+      <div class="danger-chip">bad harvest</div>
+      <div class="instr-body">Food production drops to 40% for ~40 seconds. A periodic event — possible from Phase II onward.</div>
+
+      <div class="danger-chip">traveler trouble</div>
+      <div class="instr-body">A difficult guest drains ~8% of your food and strains hospitality. Manageable but inconvenient.</div>
+
+      <div class="danger-chip">ibu split</div>
+      <div class="instr-body">Internal disagreement over nima (cultural identity). Lose 1–2 ibu and some munu. Rebuild reputation to stabilise.</div>
+
+      <div class="danger-chip">machine counter-offensive</div>
+      <div class="instr-body">Once machine grip drops below 30%, it begins reclaiming free zones. Keep building trico and tega to overwhelm it.</div>
+
+      <div class="danger-chip">sumi secession</div>
+      <div class="instr-body">In Phase III, a declared region may threaten to defect back to the machine. Drains munu slowly. If munu runs out, you lose the sumi and the machine's grip rises sharply.</div>
+    </div>
+  </div>
+
+  <!-- NIMA -->
+  <div class="instr-section">
+    <div class="instr-section-title">nima — choosing your identity</div>
+    <div class="instr-body">Your <em>nima</em> is your bolo's cultural character. Chosen at the start, it shapes your playstyle throughout.</div>
+    <div class="demo-row">
+      <div class="demo-panel">
+        <div class="demo-title">production nimas</div>
+        <div style="font-size:11px;line-height:1.8;">
+          <div><b style="color:var(--accent)">Agro-bolo</b> — kodu rate ×2. Easiest start.</div>
+          <div><b style="color:var(--accent)">Craft-bolo</b> — sibi rate ×2. Tools accumulate fast.</div>
+          <div><b style="color:var(--accent)">Eco-bolo</b> — larger kodu cap. Slower but resilient.</div>
+          <div><b style="color:var(--accent)">Tao-bolo</b> — passive auto kodu. Low-intervention.</div>
+        </div>
+      </div>
+      <div class="demo-panel">
+        <div class="demo-title">social nimas</div>
+        <div style="font-size:11px;line-height:1.8;">
+          <div><b style="color:var(--accent3)">Anarcho-bolo</b> — munu ×2. Exchange networks fastest.</div>
+          <div><b style="color:var(--accent3)">Franko-bolo</b> — sila ×3. Traveler magnet.</div>
+          <div><b style="color:var(--accent3)">Hash-bolo</b> — travelers ×2. Extra gifts from guests.</div>
+          <div><b style="color:var(--gold)">Dada-bolo</b> — random bonuses. Chaotic but surprising.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACHIEVEMENT -->
+  <div class="instr-section">
+    <div class="instr-section-title">achievement — asa'dala</div>
+    <div class="instr-body">
+      The game is won when you establish the <em>asa'dala</em> — the planetary assembly. This requires 3 sumi (regions), each requiring 3 tega (districts), each requiring 5 trico (exchange triangles).
+    </div>
+    <div class="demo-row">
+      <div class="demo-panel" style="text-align:center;padding:1rem;">
+        <div style="font-size:1.2rem;color:var(--gold);letter-spacing:0.1em;margin-bottom:0.5rem;">✦  ASA'DALA  ✦</div>
+        <div style="font-size:11px;color:var(--text2);font-style:italic;">The machine grip reaches zero.<br>Every cell on the map turns free.<br>The log reads: "What now?"<br><br>"What now?" is the only question worth asking.</div>
+      </div>
+    </div>
+    <div class="instr-body" style="margin-top:0.5rem;">
+      There is no score. There is no leaderboard. The machine simply ceases to exist, and the ibu continue their lives. This is not a triumph. It is an ordinary day in a world that chose differently.
+    </div>
+  </div>
+
+  <div class="instr-footer">
+    <button class="btn-ghost" id="instr-back-btn">← back</button>
+    <button class="btn" id="instr-start-btn">found the bolo</button>
+  </div>
+</div>
+
+<div id="game">
+  <div class="game-header">
+    <span class="gh-title">bolo'bolo /</span>
+    <span class="gh-name" id="hdr-name">—</span>
+    <span class="gh-nima" id="hdr-nima">—</span>
+    <span class="gh-phase" id="hdr-phase">PHASE I — THE FOUNDING BOLO</span>
+  </div>
+  <div class="phase-banner" id="phase-banner"></div>
+
+  <div class="layout" id="game-layout">
+
+    <!-- LEFT COL -->
+    <div class="col">
+      <div class="panel" data-mobile="resources">
+        <div class="panel-title" id="lbl-resources">resources</div>
+        <div class="res-row"><span class="res-lbl" id="lbl-r-ibu"><b>ibu</b> (people)</span><span class="res-val" id="r-ibu">5</span></div>
+        <div class="bw"><div class="bar" id="b-ibu" style="width:10%"></div></div>
+        <div class="res-row">
+          <span class="res-lbl" id="lbl-r-kodu"><b>kodu</b> (food)</span>
+          <span><span class="res-val" id="r-kodu">20</span><span class="res-rate" id="rr-kodu"> +0.5/s</span></span>
+        </div>
+        <div class="bw"><div class="bar" id="b-kodu" style="width:10%"></div></div>
+        <div class="res-row">
+          <span class="res-lbl" id="lbl-r-sibi"><b>sibi</b> (tools)</span>
+          <span><span class="res-val" id="r-sibi">4</span><span class="res-rate" id="rr-sibi"></span></span>
+        </div>
+        <div class="bw"><div class="bar blue" id="b-sibi" style="width:4%"></div></div>
+        <div class="res-row"><span class="res-lbl" id="lbl-r-munu"><b>munu</b> (reputation)</span><span class="res-val" id="r-munu">0</span></div>
+        <div class="bw"><div class="bar gold" id="b-munu" style="width:0%"></div></div>
+        <div class="res-row"><span class="res-lbl" id="lbl-r-sila"><b>sila</b> (hospitality)</span><span class="res-val" id="r-sila">0</span></div>
+        <div class="bw"><div class="bar blue" id="b-sila" style="width:0%"></div></div>
+        <div class="res-row" id="feno-row" style="display:none">
+          <span class="res-lbl" id="lbl-r-feno"><b>feno</b> (trade links)</span><span class="res-val" id="r-feno">0</span>
+        </div>
+      </div>
+
+      <div class="panel" data-mobile="machine">
+        <div class="panel-title" id="lbl-machine">the machine</div>
+        <div class="machine-label"><span>grip on your region</span><span id="machine-pct">95%</span></div>
+        <div class="bw" style="height:7px;"><div class="bar red" id="b-machine" style="width:95%"></div></div>
+        <div style="font-size:10px;color:var(--text2);text-align:right;" id="machine-status">substructing…</div>
+      </div>
+
+      <div class="panel" data-mobile="nima">
+        <div class="panel-title" id="lbl-nima-panel">nima (identity)</div>
+        <div id="nima-flavor" style="font-size:11px;color:var(--text2);font-style:italic;margin-bottom:0.4rem;"></div>
+        <div id="nima-bonus" style="font-size:11px;color:var(--accent3);"></div>
+      </div>
+    </div>
+
+    <!-- CENTRE COL -->
+    <div class="col">
+      <div class="panel" data-mobile="dispatches">
+        <div class="panel-title" id="lbl-log">dispatches from the bolo</div>
+        <div class="log-box" id="log-box"></div>
+        <div class="ticker" id="ticker">the ibu tend their kodu. the machine hums in the distance.</div>
+      </div>
+
+      <div class="panel" data-mobile="region">
+        <div class="panel-title">region — <span id="map-bolo-count">1</span> bolos, <span id="map-free-count">0</span> free</div>
+        <div class="world-map" id="world-map"></div>
+        <div class="map-legend">
+          <span style="color:var(--accent)">■ yours</span>
+          <span style="color:var(--accent3)">■ allied</span>
+          <span style="color:var(--gold)">■ trico</span>
+          <span style="color:var(--warn)">■ bandit</span>
+          <span style="color:var(--border)">■ machine</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COL -->
+    <div class="col">
+      <div class="panel" data-mobile="actions">
+        <div class="panel-title" id="lbl-actions">actions</div>
+
+        <div class="sec-lbl" id="sec-subsistence">subsistence</div>
+        <button class="act-btn" id="btn-farm"><span id="lbl-btn-farm">farm the land (kodu)</span><span class="act-cost" id="c-farm">5 sibi</span></button>
+        <button class="act-btn" id="btn-sibi"><span id="lbl-btn-sibi">build tools/shelter (sibi)</span><span class="act-cost" id="c-sibi">20 kodu</span></button>
+        <button class="act-btn" id="btn-ibu"><span id="lbl-btn-ibu">welcome a person (ibu)</span><span class="act-cost" id="c-ibu">15 kodu</span></button>
+
+        <div class="sec-lbl" id="sec-hospitality">hospitality</div>
+        <button class="act-btn" id="btn-host"><span id="lbl-btn-host">offer hospitality (sila)</span><span class="act-cost">10 kodu</span></button>
+        <button class="act-btn" id="btn-munu"><span id="lbl-btn-munu">spread reputation (munu)</span><span class="act-cost">5 sibi</span></button>
+
+        <div class="sec-lbl" id="sec-exchange" style="display:none">exchange</div>
+        <button class="act-btn" id="btn-trico" style="display:none"><span id="lbl-btn-trico">form exchange triangle (trico)</span><span class="act-cost" id="c-trico">30 munu</span></button>
+        <button class="act-btn" id="btn-feno"  style="display:none"><span id="lbl-btn-feno">barter agreement (feno)</span><span class="act-cost">20 munu</span></button>
+
+        <div class="sec-lbl" id="sec-organize" style="display:none">organizing</div>
+        <button class="act-btn gold-btn" id="btn-tega" style="display:none"><span id="lbl-btn-tega">form district (tega)</span><span class="act-cost" id="c-tega">5 trico</span></button>
+        <button class="act-btn gold-btn" id="btn-sumi" style="display:none"><span id="lbl-btn-sumi">declare region (sumi)</span><span class="act-cost" id="c-sumi">3 tega</span></button>
+        <button class="act-btn gold-btn" id="btn-asa"  style="display:none"><span id="lbl-btn-asa">establish world council (asa'dala)</span><span class="act-cost" id="c-asa">3 sumi</span></button>
+
+        <div class="sec-lbl" id="sec-defend" style="display:none">defense</div>
+        <button class="act-btn warn-btn" id="btn-yaka" style="display:none"><span id="lbl-btn-yaka">issue challenge (yaka)</span><span class="act-cost">10 munu</span></button>
+      </div>
+
+      <div class="stat-grid" data-mobile="stats">
+        <div class="stat-box"><div class="stat-val" id="s-travelers">0</div><div class="stat-lbl" id="lbl-s-travelers">travelers hosted</div></div>
+        <div class="stat-box"><div class="stat-val" id="s-bolos">1</div><div class="stat-lbl" id="lbl-s-bolos">communities in network</div></div>
+        <div class="stat-box"><div class="stat-val" id="s-trico">0</div><div class="stat-lbl" id="lbl-s-trico">exchange triangles</div></div>
+        <div class="stat-box"><div class="stat-val" id="s-ibu">5</div><div class="stat-lbl" id="lbl-s-ibu">total free people</div></div>
+      </div>
+
+      <div class="panel" data-mobile="taku">
+        <div class="panel-title" id="lbl-taku">personal chest (taku)</div>
+        <div id="taku-txt" style="font-size:11px;color:var(--text2);font-style:italic;">empty.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function() {
+"use strict";
+
+var NIMAS = [
+  { id:"agro",    name:"Agro-bolo",    desc:"Subsistence farming commune",   bonus:"kodu rate x2",         flavor:"The land is the bolo." },
+  { id:"craft",   name:"Craft-bolo",   desc:"Workshops and tool-making",     bonus:"sibi rate x2",         flavor:"Everything built by hand." },
+  { id:"eco",     name:"Eco-bolo",     desc:"Ecological, patient growth",    bonus:"larger kodu cap",      flavor:"No shortcuts. No waste." },
+  { id:"anarcho", name:"Anarcho-bolo", desc:"Horizontal organizing",         bonus:"munu x2",              flavor:"No gods, no masters." },
+  { id:"franco",  name:"Franko-bolo",  desc:"Exceptional hospitality",       bonus:"sila x3",              flavor:"The table is always set." },
+  { id:"dada",    name:"Dada-bolo",    desc:"Chaos. Random bonuses.",        bonus:"???",                  flavor:"Why should an animal think?" },
+  { id:"tao",     name:"Tao-bolo",     desc:"Contemplative, passive growth", bonus:"auto kodu trickle",    flavor:"Effortless action yields much." },
+  { id:"hash",    name:"Hash-bolo",    desc:"Traveler magnet",               bonus:"travelers x2",         flavor:"Guests always arrive." }
+];
+
+var LOGS = {
+  farm:  ["New rows of kodu planted along the south wall.","The garden expands into the old parking lot.","Compost added. Output improves.","The bolo harvests its first surplus."],
+  sibi:  ["A workshop assembled from salvaged metal.","Shelters reinforced. The bolo feels more permanent.","Tools shared, not owned."],
+  ibu:   ["A new ibu arrives, carrying only a taku.","Word reached someone in the city. They came.","A family arrives from a machine-district. They stay."],
+  host:  ["A traveler passes through, eats, sleeps, continues.","Sila offered. The guest's eyes widen — no payment needed.","Three travelers stay a week and teach new recipes."],
+  munu:  ["Stories of the bolo spread to nearby settlements.","Dispatches sent to other communities.","Travelers carry the bolo's name outward."],
+  trico: ["Three bolos form a triangle. Exchange begins.","The trico sealed with a meal, not a contract.","A trico network forms. The machine notices nothing."],
+  feno:  ["A barter agreement struck with a neighboring bolo.","Feno: no money changes hands. Goods do.","Exchange without price. The machine has no word for this."],
+  tega:  ["A tega forms: twenty bolos, shared resources, no hierarchy.","The tega meets. Nobody leads. Everything gets decided."],
+  sumi:  ["The sumi is declared. Ten million ibu, no borders.","A region withdraws from the machine. Quietly, permanently."],
+  asa:   ["The asa'dala meets for the first time. The machine is a memory.","bolo'bolo. The world rearranged without permission."],
+  yaka:  ["A yaka issued. The bandit-bolo's exchange is cut.","Dissidents within the bandit-bolo receive support."]
+};
+
+var TICKERS = [
+  "the ibu tend their kodu. the machine hums.",
+  "somewhere a traveler eats a meal they did not pay for.",
+  "the bolo does not remember what money was for.",
+  "a child asks: who owns the garden? nobody. everyone.",
+  "the planetary work machine loses one more screw.",
+  "exchange without price. the machine cannot model this.",
+  "the taku holds secrets. that is its purpose.",
+  "the ibu tends the kodu. it is enough."
+];
+
+var selectedNima = null;
+var G = null;
+var loopHandle = null;
+
+// ── MOBILE LAYOUT VARIANT ────────────────────────────────────────────────────
+// Options: "a" | "b" | "c"
+// A: actions, resources, stats, dispatches, taku, machine, region, nima
+// B: actions, stats, dispatches, resources, taku, machine, region, nima
+// C: actions, resources, dispatches, stats, taku, machine, region, nima
+var MOBILE_LAYOUT = "c";
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Build nima grid
+function buildNimaGrid() {
+  var grid = document.getElementById("nima-grid");
+  var html = "";
+  for (var i = 0; i < NIMAS.length; i++) {
+    var n = NIMAS[i];
+    html += "<div class='nima-card' data-id='" + n.id + "'>"
+      + "<div class='nima-name'>" + n.name + "</div>"
+      + "<div class='nima-desc'>" + n.desc + "</div>"
+      + "<div class='nima-bonus'>" + n.bonus + "</div>"
+      + "</div>";
+  }
+  grid.innerHTML = html;
+  grid.addEventListener("click", function(e) {
+    var card = e.target.closest(".nima-card");
+    if (!card) return;
+    selectedNima = card.getAttribute("data-id");
+    var all = grid.querySelectorAll(".nima-card");
+    for (var j = 0; j < all.length; j++) all[j].classList.remove("selected");
+    card.classList.add("selected");
+  });
+}
+
+// Start button
+document.getElementById("start-btn").addEventListener("click", function() {
+  if (!selectedNima) { alert("Choose a nima first."); return; }
+  var name = document.getElementById("bolo-name-input").value.trim() || "Unnamed Bolo";
+  var asapili = document.getElementById("asapili-check").checked;
+  initGame(name, selectedNima, asapili);
+  document.getElementById("title-screen").style.display = "none";
+  document.getElementById("game").style.display = "block";
+  document.getElementById("game-layout").classList.add("mobile-" + MOBILE_LAYOUT);
+  if (loopHandle) clearInterval(loopHandle);
+  loopHandle = setInterval(tick, 100);
+});
+
+function initGame(name, nimaId, asapili) {
+  var nima = null;
+  for (var i = 0; i < NIMAS.length; i++) { if (NIMAS[i].id === nimaId) { nima = NIMAS[i]; break; } }
+
+  G = {
+    name: name, nima: nima, nimaId: nimaId, tick: 0, phase: 1,
+    asapili: !!asapili,
+    ibu: 5, ibuMax: 50,
+    kodu: 20, koduMax: 200, koduRate: 0.5,
+    sibi: 4, sibiMax: 100, sibiRate: 0,
+    munu: 0, munuMax: 500,
+    sila: 0, silaMax: 50,
+    feno: 0,
+    farmLv: 1, sibiLv: 1,
+    tricoCount: 0, tegaCount: 0, sumiCount: 0, asaDone: false,
+    bolosNet: 1, bolosFree: 0,
+    travelersHosted: 0, totalFreeIbu: 5,
+    machineGrip: 95,
+    map: [], bandits: [],
+    lastBanditTick: 0, lastTravelerTick: 0,
+    lastEventTick: 0,
+    harvestPenalty: 0,      // ticks remaining on bad harvest
+    harvestBaseRate: 0,     // stored normal koduRate during penalty
+    splitPending: false,    // ibu split event active
+    sumiSeceding: false,    // sumi secession active
+    log: [], tickerIdx: 0
+  };
+
+  for (var i = 0; i < 64; i++) G.map.push("machine");
+  G.map[0] = "yours";
+
+  if (nimaId === "agro")   { G.koduRate = 1.5; }
+  if (nimaId === "craft")  { G.sibiRate = 0.3; }
+  if (nimaId === "eco")    { G.koduRate = 0.8; G.koduMax = 400; }
+  if (nimaId === "franco") { G.silaMax = 150; }
+  if (nimaId === "hash")   { G.silaMax = 80; }
+  if (nimaId === "tao")    { G.koduRate = 0.35; }
+  if (nimaId === "dada")   { G.koduRate = 0.3 + Math.random() * 1.2; }
+
+  el("hdr-name").textContent  = name;
+  el("hdr-nima").textContent  = nima.name;
+  el("nima-flavor").textContent = '"' + nima.flavor + '"';
+  el("nima-bonus").textContent  = "bonus: " + nima.bonus;
+
+  // Apply language to all static labels
+  applyLabels();
+
+  addLog("The " + name + " is founded. " + G.ibu + " " + L("ibu","people") + " gather.", "spec");
+  addLog("Your nima: " + nima.name + " — " + nima.desc + ".", "ital");
+  addLog("The machine controls 95% of the region. Begin substructing.", "ital");
+
+  renderMap();
+  updateUI();
+}
+
+// L(): returns "bolo (english)" in asapili mode, or "english (bolo)" otherwise
+function L(bolo, english) {
+  if (G && G.asapili) return bolo + " (" + english + ")";
+  return english + " (" + bolo + ")";
+}
+
+// setHTML(): set innerHTML of an element
+function setHTML(id, v) { var e = el(id); if (e) e.innerHTML = v; }
+
+function applyLabels() {
+  var a = G.asapili;
+  // Resource labels — uses innerHTML for bold bolo word
+  function rl(bolo, english) {
+    return a
+      ? "<b>" + bolo + "</b> (" + english + ")"
+      : english + " (<b>" + bolo + "</b>)";
+  }
+  // Panel titles
+  setText("lbl-resources",   a ? "resources" : "resources");
+  setText("lbl-machine",     a ? "the machine" : "the machine");
+  setText("lbl-nima-panel",  a ? "nima (identity)" : "identity (nima)");
+  setText("lbl-log",         a ? "dispatches from the bolo" : "dispatches from the bolo");
+  setText("lbl-actions",     a ? "actions" : "actions");
+  setText("lbl-taku",        a ? "taku — the personal chest" : "personal chest (taku)");
+
+  // Resource row labels
+  setHTML("lbl-r-ibu",  rl("ibu",  "people"));
+  setHTML("lbl-r-kodu", rl("kodu", "food"));
+  setHTML("lbl-r-sibi", rl("sibi", "tools"));
+  setHTML("lbl-r-munu", rl("munu", "reputation"));
+  setHTML("lbl-r-sila", rl("sila", "hospitality"));
+  setHTML("lbl-r-feno", rl("feno", "trade links"));
+
+  // Section labels in actions
+  setText("sec-subsistence", a ? "subsistence" : "subsistence");
+  setText("sec-hospitality", a ? "hospitality" : "hospitality");
+
+  // Action button labels
+  setText("lbl-btn-farm",  a ? "tend the kodu (farm)" : "farm the land (kodu)");
+  setText("lbl-btn-sibi",  a ? "build sibi (tools/shelter)" : "build tools/shelter (sibi)");
+  setText("lbl-btn-ibu",   a ? "welcome ibu (person)" : "welcome a person (ibu)");
+  setText("lbl-btn-host",  a ? "offer sila (hospitality)" : "offer hospitality (sila)");
+  setText("lbl-btn-munu",  a ? "spread munu (reputation)" : "spread reputation (munu)");
+  setText("lbl-btn-trico", a ? "form trico (exchange triangle)" : "form exchange triangle (trico)");
+  setText("lbl-btn-feno",  a ? "feno agreement (barter)" : "barter agreement (feno)");
+  setText("lbl-btn-tega",  a ? "form tega (district)" : "form district (tega)");
+  setText("lbl-btn-sumi",  a ? "declare sumi (region)" : "declare region (sumi)");
+  setText("lbl-btn-asa",   a ? "establish asa'dala (world council)" : "establish world council (asa'dala)");
+  setText("lbl-btn-yaka",  a ? "issue yaka (challenge)" : "issue challenge (yaka)");
+
+  // Stat labels
+  setText("lbl-s-travelers", a ? "ibu (travelers) hosted" : "travelers (ibu) hosted");
+  setText("lbl-s-bolos",     a ? "bolos (communities) in network" : "communities (bolos) in network");
+  setText("lbl-s-trico",     a ? "trico (exchange triangles)" : "exchange triangles (trico)");
+  setText("lbl-s-ibu",       a ? "total free ibu (people)" : "total free people (ibu)");
+
+  // Map legend
+  setText("legend-machine", a ? "machine" : "machine");
+
+  // Cost labels (resource names)
+  setText("lbl-cost-sibi-unit", a ? "sibi" : "tools (sibi)");
+  setText("lbl-cost-kodu-unit", a ? "kodu" : "food (kodu)");
+  setText("lbl-cost-munu-unit", a ? "munu" : "rep (munu)");
+  setText("lbl-cost-trico-unit", a ? "trico" : "triangles (trico)");
+  setText("lbl-cost-tega-unit",  a ? "tega" : "districts (tega)");
+  setText("lbl-cost-sumi-unit",  a ? "sumi" : "regions (sumi)");
+}
+
+function tick() {
+  if (!G) return;
+  G.tick++;
+
+  // ── PASSIVE PRODUCTION ───────────────────────────────────────────────────
+  var effectiveKoduRate = G.harvestPenalty > 0 ? G.koduRate * 0.4 : G.koduRate;
+  G.kodu = Math.min(G.kodu + effectiveKoduRate * 0.1, G.koduMax);
+  G.sibi = Math.min(G.sibi + G.sibiRate * 0.1, G.sibiMax);
+
+  // Tao passive bonus
+  if (G.nimaId === "tao" && G.tick % 60 === 0) {
+    G.kodu = Math.min(G.kodu + G.ibu * 0.2, G.koduMax);
+  }
+
+  // Dada random events
+  if (G.nimaId === "dada" && G.tick % 90 === 0) {
+    var r = Math.random();
+    if (r < 0.35) { G.kodu = Math.min(G.kodu + 15, G.koduMax); addLog("Dada event: unexpected abundance.", "ital"); }
+    else if (r < 0.55) { G.munu = Math.min(G.munu + munuMult() * 8, G.munuMax); addLog("Dada event: a stranger tells your story.", "ital"); }
+  }
+
+  // ── MUNU DECAY ───────────────────────────────────────────────────────────
+  if (G.tick % 40 === 0 && G.munu > 0) G.munu = Math.max(0, G.munu - 0.5);
+
+  // ── KODU SHORTAGE ────────────────────────────────────────────────────────
+  // If kodu hits zero, ibu begin leaving (one every 60 ticks)
+  if (G.kodu <= 0) {
+    G.kodu = 0;
+    if (G.tick % 60 === 0 && G.ibu > 2) {
+      G.ibu = Math.max(2, G.ibu - 1);
+      G.koduRate = Math.max(0.1, G.koduRate - 0.04);
+      addLog("⚠ Food runs out. An ibu drifts away.", "bad");
+      if (G.ibu <= 3) addLog("The bolo is near collapse. Tend the " + L("kodu","land") + " urgently.", "bad");
+    }
+  }
+
+  // ── IBU DRIFT ────────────────────────────────────────────────────────────
+  // Occasional: one ibu quietly leaves when kodu is critically low
+  if (G.tick % 400 === 0 && G.kodu < G.koduMax * 0.10 && G.ibu > 5 && Math.random() < 0.3) {
+    G.ibu = Math.max(2, G.ibu - 1);
+    G.koduRate = Math.max(0.1, G.koduRate - 0.04);
+    addLog("An " + L("ibu","person") + " slips away quietly. Stores are too low.", "bad");
+  }
+
+  // ── TRAVELER AUTO-ARRIVE ─────────────────────────────────────────────────
+  var travelInterval = G.nimaId === "hash" ? 60 : 120;
+  if (G.sila >= 5 && G.tick - G.lastTravelerTick > travelInterval) {
+    G.lastTravelerTick = G.tick;
+    G.travelersHosted++;
+    G.munu = Math.min(G.munu + 1, G.munuMax);
+    if (G.tick % 180 === 0) {
+      var tm = ["A traveler arrives. Eats, sleeps, continues.", "Two travelers share seeds from distant bolos.", "A wandering ibu stays three days, then moves on."];
+      addLog(tm[Math.floor(Math.random() * tm.length)], "ital");
+    }
+  }
+
+  // ── BANDIT BOLO SPAWN ────────────────────────────────────────────────────
+  if (G.phase >= 2 && G.tick - G.lastBanditTick > 400 && Math.random() < 0.0008) {
+    G.lastBanditTick = G.tick;
+    for (var i = 1; i < 64; i++) {
+      if (G.map[i] === "machine") {
+        G.map[i] = "bandit";
+        G.bandits.push(i);
+        renderMap();
+        addLog("⚠ A bandit-bolo emerges. They are raiding your " + L("kodu","food stores") + ".", "bad");
+        addLog("Issue a " + L("yaka","challenge") + " to cut their exchange and support their dissidents.", "ital");
+        break;
+      }
+    }
+  }
+
+  // ── BANDIT KODU DRAIN ────────────────────────────────────────────────────
+  // Each active bandit drains kodu slowly but continuously
+  if (G.bandits.length > 0 && G.tick % 20 === 0) {
+    var drain = G.bandits.length * 0.3;
+    G.kodu = Math.max(0, G.kodu - drain);
+    if (G.tick % 100 === 0) {
+      addLog("Bandit-bolo raid drains " + L("kodu","food") + " from the region.", "bad");
+    }
+  }
+
+  // ── MACHINE COUNTER-OFFENSIVE ─────────────────────────────────────────────
+  // Below 30% grip the machine tries to reclaim free/allied cells
+  if (!G.asaDone && G.machineGrip > 0 && G.machineGrip < 30 && G.tick % 150 === 0) {
+    var reclaimed = 0;
+    for (var i = 0; i < 64; i++) {
+      if ((G.map[i] === "free" || G.map[i] === "allied") && Math.random() < 0.15 && reclaimed < 2) {
+        G.map[i] = "machine";
+        G.machineGrip = Math.min(35, G.machineGrip + 2);
+        reclaimed++;
+      }
+    }
+    if (reclaimed > 0) {
+      renderMap();
+      addLog("⚠ The machine reasserts itself — " + reclaimed + " zone" + (reclaimed > 1 ? "s" : "") + " reclaimed.", "bad");
+      if (G.machineGrip > 28) addLog("The machine is fighting back hard. Build more " + L("trico","exchange networks") + " to hold ground.", "ital");
+    }
+  }
+
+  // ── PERIODIC EVENTS ──────────────────────────────────────────────────────
+  // One event slot per 600 ticks minimum, ~1.2% chance — roughly one per 8-12 min
+  // Phase I is protected: events don't start until phase 2
+  if (G.phase >= 2 && G.tick - G.lastEventTick > 600 && G.tick > 400) {
+    var roll = Math.random();
+    var threshold = 0.012;
+    if (roll < threshold) {
+      G.lastEventTick = G.tick;
+      triggerRandomEvent();
+    }
+  }
+
+  // ── HARVEST PENALTY COUNTDOWN ─────────────────────────────────────────────
+  if (G.harvestPenalty > 0) {
+    G.harvestPenalty--;
+    if (G.harvestPenalty === 0) {
+      addLog("The " + L("kodu","harvest") + " recovers. Normal production resumes.", "good");
+    }
+  }
+
+  // ── SUMI SECESSION ────────────────────────────────────────────────────────
+  // If sumi secession is active, drains munu slowly — manageable but urgent
+  if (G.sumiSeceding && G.tick % 40 === 0) {
+    if (G.munu >= 3) {
+      G.munu -= 3;
+    } else {
+      // Can't hold it — lose a sumi
+      G.sumiSeceding = false;
+      G.sumiCount = Math.max(0, G.sumiCount - 1);
+      G.machineGrip = Math.min(95, G.machineGrip + 20);
+      // Revert some map cells
+      var reverted = 0;
+      for (var i = 0; i < 64 && reverted < 8; i++) {
+        if (G.map[i] === "free" && Math.random() < 0.4) { G.map[i] = "machine"; reverted++; }
+      }
+      renderMap();
+      addLog("⚠ The sumi fractures — the machine fills the void. Grip rises.", "bad");
+      addLog("Rebuild " + L("munu","reputation") + " to stabilise the region.", "ital");
+    }
+  }
+
+  if (G.tick % 50 === 0) {
+    G.tickerIdx = (G.tickerIdx + 1) % TICKERS.length;
+    el("ticker").textContent = TICKERS[G.tickerIdx];
+  }
+
+  updateUI();
+}
+
+function triggerRandomEvent() {
+  // Weight events by phase — some only occur in later phases
+  var events = ["harvest", "travelerTrouble", "ibuSplit"];
+  if (G.phase >= 3 && G.sumiCount >= 1 && !G.sumiSeceding) events.push("sumiSecession");
+
+  var ev = events[Math.floor(Math.random() * events.length)];
+
+  if (ev === "harvest") {
+    // Bad harvest: kodu rate drops to 40% for ~400 ticks (40 seconds)
+    if (G.harvestPenalty > 0) return; // already active
+    G.harvestPenalty = 400;
+    var msgs = [
+      "⚠ Bad harvest — blight in the " + L("kodu","fields") + ". Food production falls sharply for a time.",
+      "⚠ Drought hits the " + L("kodu","garden") + ". Output drops to a trickle.",
+      "⚠ Pests in the " + L("kodu","plots") + ". The harvest is poor this season."
+    ];
+    addLog(rnd(msgs), "bad");
+    addLog("Tend the " + L("kodu","land") + " and build " + L("sibi","tools") + " to recover faster.", "ital");
+  }
+
+  else if (ev === "travelerTrouble") {
+    // A difficult guest strains hospitality: kodu cost + sila drop
+    var cost = Math.floor(G.kodu * 0.08 + 5);
+    cost = Math.min(cost, G.kodu);
+    G.kodu = Math.max(0, G.kodu - cost);
+    G.sila = Math.max(0, G.sila - 4);
+    var msgs = [
+      "⚠ A troubled traveler strains the bolo. " + cost + " " + L("kodu","food") + " consumed, " + L("sila","hospitality") + " strained.",
+      "⚠ Difficult guests arrive and refuse to leave. Resources drain. " + L("sila","Hospitality") + " suffers.",
+      "⚠ A traveler falls ill in the bolo. Care is given freely, but it costs " + cost + " " + L("kodu","food") + "."
+    ];
+    addLog(rnd(msgs), "bad");
+    addLog("Offer more " + L("sila","hospitality") + " to rebuild trust.", "ital");
+  }
+
+  else if (ev === "ibuSplit") {
+    // Internal disagreement: lose 1-2 ibu and some munu
+    if (G.ibu <= 4) return; // too small to split
+    var lost = G.ibu > 10 ? 2 : 1;
+    G.ibu = Math.max(3, G.ibu - lost);
+    G.koduRate = Math.max(0.1, G.koduRate - lost * 0.04);
+    G.munu = Math.max(0, G.munu - 8);
+    var msgs = [
+      "⚠ A faction within the bolo disputes the " + L("nima","identity") + ". " + lost + " " + L("ibu","people") + " leave. " + L("Munu","Reputation") + " takes a blow.",
+      "⚠ Internal disagreement erupts. " + lost + " " + L("ibu","person") + " depart, taking their seeds.",
+      "⚠ The bolo splits over a question of " + L("nima","culture") + ". " + lost + " leave. The community is smaller but more honest."
+    ];
+    addLog(rnd(msgs), "bad");
+    addLog("Spend " + L("sibi","tools") + " to spread " + L("munu","reputation") + " and stabilise the bolo.", "ital");
+  }
+
+  else if (ev === "sumiSecession") {
+    // A sumi threatens to defect — costs munu to hold, or loses it
+    G.sumiSeceding = true;
+    addLog("⚠ A " + L("sumi","region") + " threatens to secede. The machine offers it order.", "bad");
+    addLog("Build " + L("munu","reputation") + " urgently — " + L("munu","reputation") + " will drain until the crisis resolves.", "ital");
+  }
+}
+
+function farmCost()  { return Math.floor(3 * Math.pow(1.35, G.farmLv)); }
+function sibiCost()  { return Math.floor(15 * Math.pow(1.4, G.sibiLv)); }
+function ibuCost()   { return Math.floor(10 * Math.pow(1.2, Math.floor(G.ibu / 5))); }
+function munuMult()  { return G.nimaId === "anarcho" ? 2 : 1; }
+function silaMult()  { return G.nimaId === "franco" ? 3 : (G.nimaId === "hash" ? 2 : 1); }
+
+function actions() {
+  return {
+    farm: function() {
+      var c = farmCost();
+      if (G.sibi < c) return;
+      G.sibi -= c; G.farmLv++;
+      G.koduRate += G.nimaId === "agro" ? 0.45 : 0.22;
+      G.koduMax += 50;
+      addLog(rnd(LOGS.farm), "good");
+    },
+    sibi: function() {
+      var c = sibiCost();
+      if (G.kodu < c) return;
+      G.kodu -= c; G.sibiLv++;
+      G.sibi += 5; G.sibiMax += 20;
+      if (G.nimaId === "craft") G.sibiRate += 0.08;
+      addLog(rnd(LOGS.sibi));
+    },
+    ibu: function() {
+      var c = ibuCost();
+      if (G.kodu < c || G.ibu >= G.ibuMax) return;
+      G.kodu -= c; G.ibu = Math.min(G.ibu + 1, G.ibuMax);
+      G.totalFreeIbu++; G.koduRate += 0.04;
+      addLog(rnd(LOGS.ibu), "good");
+      checkPhase();
+    },
+    host: function() {
+      if (G.kodu < 10) return;
+      G.kodu -= 10;
+      G.sila = Math.min(G.sila + silaMult() * 2, G.silaMax);
+      G.munu = Math.min(G.munu + munuMult(), G.munuMax);
+      G.travelersHosted++;
+      addLog(rnd(LOGS.host));
+      if (G.nimaId === "hash" && Math.random() < 0.4) { G.kodu += 8; addLog("The travelers leave a gift. Unusual seeds.", "ital"); }
+      checkPhase();
+    },
+    munu: function() {
+      if (G.sibi < 5) return;
+      G.sibi -= 5;
+      G.munu = Math.min(G.munu + munuMult() * 5, G.munuMax);
+      addLog(rnd(LOGS.munu), "ital");
+      checkPhase();
+    },
+    trico: function() {
+      if (G.munu < 30) return;
+      G.munu -= 30; G.tricoCount++;
+      G.bolosNet += 2; G.bolosFree += 2;
+      G.totalFreeIbu += Math.floor(Math.random() * 300 + 200);
+      G.machineGrip = Math.max(10, G.machineGrip - 3);
+      var added = 0;
+      for (var i = 0; i < 64 && added < 2; i++) { if (G.map[i] === "machine") { G.map[i] = "trico"; added++; } }
+      renderMap(); addLog(rnd(LOGS.trico), "good"); checkPhase();
+    },
+    feno: function() {
+      if (G.munu < 20) return;
+      G.munu -= 20; G.feno++;
+      G.koduRate += 0.1; G.sibiRate += 0.04;
+      addLog(rnd(LOGS.feno), "ital");
+    },
+    tega: function() {
+      if (G.tricoCount < 5) return;
+      G.tricoCount -= 5; G.tegaCount++;
+      G.machineGrip = Math.max(5, G.machineGrip - 15);
+      G.ibuMax += 100; G.koduMax += 500;
+      var added = 0;
+      for (var i = 0; i < 64 && added < 10; i++) { if (G.map[i] === "machine") { G.map[i] = "allied"; added++; } }
+      renderMap(); addLog(rnd(LOGS.tega), "spec"); checkPhase();
+    },
+    sumi: function() {
+      if (G.tegaCount < 3) return;
+      G.tegaCount -= 3; G.sumiCount++;
+      G.machineGrip = Math.max(2, G.machineGrip - 25);
+      G.totalFreeIbu += 5000000;
+      for (var i = 0; i < 64; i++) { if (G.map[i] === "machine" && Math.random() < 0.5) G.map[i] = "free"; }
+      renderMap(); addLog(rnd(LOGS.sumi), "spec");
+      addLog("Machine grip: " + Math.round(G.machineGrip) + "%. The region breathes.", "ital");
+      checkPhase();
+    },
+    asa: function() {
+      if (G.sumiCount < 3 || G.asaDone) return;
+      G.sumiCount -= 3; G.asaDone = true; G.machineGrip = 0;
+      for (var i = 0; i < 64; i++) G.map[i] = "free";
+      G.map[0] = "yours";
+      renderMap(); addLog(rnd(LOGS.asa), "spec");
+      addLog("bolo'bolo. The machine is gone. What now?", "spec");
+      addLog('"What now?" is the only question worth asking.', "ital");
+      showBanner("✦  ASA'DALA ESTABLISHED  —  BOLO'BOLO  ✦");
+    },
+    yaka: function() {
+      if (G.munu < 10 || G.bandits.length === 0) return;
+      G.munu -= 10;
+      addLog(rnd(LOGS.yaka), "bad");
+      setTimeout(function() {
+        if (!G || G.bandits.length === 0) return;
+        var idx = G.bandits.shift();
+        G.map[idx] = "machine";
+        renderMap(); addLog("The bandit-bolo dissolves. Predation proved unprofitable.", "good");
+        updateUI();
+      }, 2500);
+    }
+  };
+}
+
+function wireButtons() {
+  var A = actions();
+  var ids = ["farm","sibi","ibu","host","munu","trico","feno","tega","sumi","asa","yaka"];
+  for (var i = 0; i < ids.length; i++) {
+    (function(id) {
+      var btn = document.getElementById("btn-" + id);
+      if (btn && A[id]) {
+        btn.addEventListener("click", function() { if (G) { A[id](); updateUI(); } });
+      }
+    })(ids[i]);
+  }
+}
+
+function checkPhase() {
+  if (G.phase === 1 && (G.travelersHosted >= 3 || G.munu >= 15)) {
+    G.phase = 2;
+    addLog("Your reputation reaches beyond the bolo.", "spec");
+    addLog("New options: " + (G.asapili ? "trico networks, feno agreements." : "exchange triangles (trico), barter agreements (feno)."), "good");
+    el("hdr-phase").textContent = G.asapili ? "PHASE II — THE TRICO NETWORK" : "PHASE II — THE EXCHANGE NETWORK";
+    showBanner(G.asapili ? "PHASE II: THE TRICO NETWORK" : "PHASE II: THE EXCHANGE NETWORK");
+  }
+  if (G.phase === 2 && G.tricoCount >= 3) {
+    G.phase = 3;
+    addLog("The network grows. A " + (G.asapili ? "tega" : "district (tega)") + " becomes possible.", "spec");
+    el("hdr-phase").textContent = G.asapili ? "PHASE III — REGIONAL COOPERATION" : "PHASE III — REGIONAL COOPERATION";
+    showBanner(G.asapili ? "PHASE III: REGIONAL COOPERATION" : "PHASE III: REGIONAL COOPERATION");
+  }
+}
+
+function updateUI() {
+  if (!G) return;
+  setText("r-ibu",  Math.floor(G.ibu));
+  setText("r-kodu", Math.floor(G.kodu));
+  setText("r-sibi", Math.floor(G.sibi));
+  setText("r-munu", Math.floor(G.munu));
+  setText("r-sila", Math.floor(G.sila));
+  setText("r-feno", G.feno);
+  var koduRateDisplay = G.harvestPenalty > 0
+    ? " +" + (G.koduRate * 0.4).toFixed(1) + "/s ⚠"
+    : " +" + G.koduRate.toFixed(1) + "/s";
+  setText("rr-kodu", koduRateDisplay);
+  setText("rr-sibi", G.sibiRate > 0.01 ? " +" + G.sibiRate.toFixed(2) + "/s" : "");
+
+  // Flash kodu bar red when low or under harvest penalty
+  var koduBar = el("b-kodu");
+  if (koduBar) {
+    if (G.kodu < G.koduMax * 0.1 || G.harvestPenalty > 0) {
+      koduBar.classList.add("red"); koduBar.classList.remove("bar");
+    } else {
+      koduBar.classList.remove("red"); koduBar.classList.add("bar");
+    }
+  }
+  setPct("b-ibu",     G.ibu  / G.ibuMax  * 100);
+  setPct("b-kodu",    G.kodu / G.koduMax * 100);
+  setPct("b-sibi",    G.sibi / G.sibiMax * 100);
+  setPct("b-munu",    G.munu / G.munuMax * 100);
+  setPct("b-sila",    G.sila / G.silaMax * 100);
+  setPct("b-machine", G.machineGrip);
+  setText("machine-pct",    Math.round(G.machineGrip) + "%");
+  var machSt = G.machineGrip < 15 ? "crumbling" : G.machineGrip < 50 ? "weakening" : "substructing...";
+  if (G.sumiSeceding) machSt = "⚠ sumi seceding!";
+  setText("machine-status", machSt);
+  setText("s-travelers", G.travelersHosted);
+  setText("s-bolos",     G.bolosNet);
+  setText("s-trico",     G.tricoCount);
+  setText("s-ibu",       G.totalFreeIbu.toLocaleString());
+  setText("map-bolo-count", G.bolosNet);
+  setText("map-free-count", G.bolosFree);
+
+  setDis("btn-farm", G.sibi < farmCost());
+  setDis("btn-sibi", G.kodu < sibiCost());
+  setDis("btn-ibu",  G.kodu < ibuCost() || G.ibu >= G.ibuMax);
+  setDis("btn-host", G.kodu < 10);
+  setDis("btn-munu", G.sibi < 5);
+  setText("c-farm", farmCost() + " " + (G.asapili ? "sibi" : "tools (sibi)"));
+  setText("c-sibi", sibiCost() + " " + (G.asapili ? "kodu" : "food (kodu)"));
+  setText("c-ibu",  ibuCost()  + " " + (G.asapili ? "kodu" : "food (kodu)"));
+
+  if (G.phase >= 2) {
+    show("sec-exchange"); show("btn-trico"); show("btn-feno"); show("feno-row");
+    setDis("btn-trico", G.munu < 30);
+    setDis("btn-feno",  G.munu < 20);
+    var munuWord = G.asapili ? "munu" : "rep (munu)";
+    setText("c-trico", "30 " + munuWord + " (have " + Math.floor(G.munu) + ")");
+  }
+  if (G.phase >= 3) {
+    var tricoWord = G.asapili ? "trico" : "triangles (trico)";
+    var tegaWord  = G.asapili ? "tega"  : "districts (tega)";
+    var sumiWord  = G.asapili ? "sumi"  : "regions (sumi)";
+    show("sec-organize"); show("btn-tega");
+    setDis("btn-tega", G.tricoCount < 5);
+    setText("c-tega", "5 " + tricoWord + " (have " + G.tricoCount + ")");
+    if (G.tegaCount >= 1) { show("btn-sumi"); setDis("btn-sumi", G.tegaCount < 3); setText("c-sumi", "3 " + tegaWord + " (have " + G.tegaCount + ")"); }
+    if (G.sumiCount >= 1) { show("btn-asa");  setDis("btn-asa",  G.sumiCount < 3 || G.asaDone); setText("c-asa", "3 " + sumiWord + " (have " + G.sumiCount + ")"); }
+  }
+  if (G.bandits.length > 0) { show("sec-defend"); show("btn-yaka"); setDis("btn-yaka", G.munu < 10); }
+
+  var items = [];
+  if (G.tricoCount > 0) items.push(G.tricoCount + " trico agreement" + (G.tricoCount > 1 ? "s" : ""));
+  if (G.feno > 0)       items.push(G.feno + " feno link" + (G.feno > 1 ? "s" : ""));
+  if (G.tegaCount > 0)  items.push("a tega — the ibu is proud");
+  if (G.sumiCount > 0)  items.push("memories of the sumi declaration");
+  if (G.asaDone)        items.push("a world without the machine");
+  setText("taku-txt", items.length ? items.join("; ") + "." : "empty. nothing yet worth hiding.");
+}
+
+function renderMap() {
+  if (!G) return;
+  var syms = { yours:"●", allied:"○", trico:"◆", machine:"·", free:"◌", bandit:"x" };
+  var html = "";
+  for (var i = 0; i < 64; i++) {
+    var t = G.map[i];
+    html += "<div class='dot " + t + "'>" + (syms[t] || "·") + "</div>";
+  }
+  el("world-map").innerHTML = html;
+}
+
+function addLog(msg, type) {
+  type = type || "";
+  if (!G) return;
+  G.log.unshift({ msg: msg, type: type, tick: G.tick });
+  if (G.log.length > 80) G.log.pop();
+  var html = "";
+  var count = Math.min(G.log.length, 40);
+  for (var i = 0; i < count; i++) {
+    var e = G.log[i];
+    html += "<div class='log-entry " + e.type + "'>"
+      + "<span class='log-ts'>[" + e.tick + "]</span> "
+      + "<span class='log-msg'>" + e.msg + "</span>"
+      + "</div>";
+  }
+  el("log-box").innerHTML = html;
+}
+
+function el(id)          { return document.getElementById(id); }
+function setText(id, v)  { var e = el(id); if (e) e.textContent = v; }
+function setHTML(id, v)  { var e = el(id); if (e) e.innerHTML = v; }
+function setPct(id, pct) { var e = el(id); if (e) e.style.width = Math.min(100, Math.max(0, pct)) + "%"; }
+function setDis(id, v)   { var e = el(id); if (e) { if (v) e.setAttribute("disabled",""); else e.removeAttribute("disabled"); } }
+function show(id)        { var e = el(id); if (e) e.style.display = ""; }
+function rnd(arr)        { return arr[Math.floor(Math.random() * arr.length)]; }
+function showBanner(txt) {
+  var b = el("phase-banner");
+  b.textContent = txt;
+  b.style.display = "block";
+  setTimeout(function() { b.style.display = "none"; }, 5000);
+}
+
+buildNimaGrid();
+wireButtons();
+
+// Instructions nav
+document.getElementById("instr-btn").addEventListener("click", function() {
+  document.getElementById("title-screen").style.display = "none";
+  document.getElementById("instructions").style.display = "block";
+  window.scrollTo(0, 0);
+});
+document.getElementById("instr-back-btn").addEventListener("click", function() {
+  document.getElementById("instructions").style.display = "none";
+  document.getElementById("title-screen").style.display = "flex";
+  window.scrollTo(0, 0);
+});
+document.getElementById("instr-start-btn").addEventListener("click", function() {
+  if (!selectedNima) {
+    document.getElementById("instructions").style.display = "none";
+    document.getElementById("title-screen").style.display = "flex";
+    window.scrollTo(0, 0);
+    alert("Choose a nima first.");
+    return;
+  }
+  var name = document.getElementById("bolo-name-input").value.trim() || "Unnamed Bolo";
+  var asapili = document.getElementById("asapili-check").checked;
+  document.getElementById("instructions").style.display = "none";
+  initGame(name, selectedNima, asapili);
+  document.getElementById("game").style.display = "block";
+  document.getElementById("game-layout").classList.add("mobile-" + MOBILE_LAYOUT);
+  if (loopHandle) clearInterval(loopHandle);
+  loopHandle = setInterval(tick, 100);
+  window.scrollTo(0, 0);
+});
+
+})();
+</script>
+</body>
+</html>
