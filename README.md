@@ -1,4 +1,4 @@
-# bolo-bolo-game
+# Bolo'bolo - Solo Game
 A solo idle Bolo'bolo game concept
 
 Based on the 1983 anarchist utopian text bolo'bolo by P.M. The goal is not conquest. It is simply — quietly, persistently — to build something better.
