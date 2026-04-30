@@ -203,6 +203,20 @@
   .instr-footer { text-align: center; padding: 2rem 0 1rem; border-top: 1px solid var(--border); margin-top: 1rem; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
   .btn-ghost { background: none; border: 1px solid var(--border); color: var(--text2); font-family: 'Courier New', monospace; font-size: 13px; padding: 0.55rem 1.5rem; cursor: pointer; letter-spacing: 0.1em; transition: all 0.15s; }
   .btn-ghost:hover { border-color: var(--text2); color: var(--text); }
+
+  /* ── HIGH CONTRAST ── */
+  body.hc {
+    --bg: #000000; --bg2: #0d0d0d; --bg3: #1a1a1a; --panel: #080808;
+    --border: #cccccc; --text: #ffffff; --text2: #cccccc;
+    --accent: #44ff88; --accent3: #00ddff; --warn: #ff5555; --gold: #ffcc00;
+  }
+  body.hc #title-screen,
+  body.hc #preface { background: #000; }
+  body.hc .res-row { border-bottom-color: #1a1a1a; }
+  body.hc .log-box  { background: #000; }
+
+  .hc-toggle { display: flex; align-items: center; gap: 0.4rem; font-size: 11px; color: var(--text2); cursor: pointer; margin-left: 1rem; user-select: none; }
+  .hc-toggle input { accent-color: var(--accent); width: 13px; height: 13px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -219,9 +233,13 @@
     Name your bolo:
     <input type="text" id="bolo-name-input" maxlength="20" placeholder="e.g. Mutum Biyu" />
   </div>
-  <label style="display:flex;align-items:center;gap:0.5rem;color:var(--text2);font-size:12px;margin-bottom:1.2rem;cursor:pointer;">
+  <label style="display:flex;align-items:center;gap:0.5rem;color:var(--text2);font-size:12px;margin-bottom:0.5rem;cursor:pointer;">
     <input type="checkbox" id="asapili-check" checked style="accent-color:var(--accent3);width:14px;height:14px;cursor:pointer;" />
     <span>use <strong style="color:var(--accent3)">asa'pili</strong> language <span style="color:var(--text2);font-style:italic;">(bolo words first, english in brackets)</span></span>
+  </label>
+  <label style="display:flex;align-items:center;gap:0.5rem;color:var(--text2);font-size:12px;margin-bottom:1.2rem;cursor:pointer;">
+    <input type="checkbox" id="hc-check-title" style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer;" />
+    <span>high contrast mode</span>
   </label>
   <button class="btn" id="start-btn">found the bolo</button>
   <div style="margin-top:1rem;">
@@ -422,7 +440,7 @@
       <div class="danger-chip">bad harvest</div>
       <div class="instr-body">Food production drops to 40% for ~40 seconds. A periodic event — possible from Phase II onward.</div>
 
-      <div class="danger-chip">traveler trouble</div>
+      <div class="danger-chip">traveller trouble</div>
       <div class="instr-body">A difficult guest drains ~8% of your food and strains hospitality. Manageable but inconvenient.</div>
 
       <div class="danger-chip">ibu split</div>
@@ -491,6 +509,10 @@
     <span class="gh-name" id="hdr-name">—</span>
     <span class="gh-nima" id="hdr-nima">—</span>
     <span class="gh-phase" id="hdr-phase">PHASE I — THE FOUNDING BOLO</span>
+    <label class="hc-toggle" title="toggle high contrast">
+      <input type="checkbox" id="hc-check-game" />
+      <span>HC</span>
+    </label>
   </div>
   <div class="phase-banner" id="phase-banner"></div>
   <div class="goal-box" id="goal-box">
@@ -578,12 +600,12 @@
         <button class="act-btn" id="btn-trico" style="display:none"><span id="lbl-btn-trico">form exchange triangle (trico)</span><span class="act-cost" id="c-trico">30 munu</span></button>
         <button class="act-btn" id="btn-feno"  style="display:none"><span id="lbl-btn-feno">barter agreement (feno)</span><span class="act-cost">20 munu</span></button>
 
-        <div class="sec-lbl" id="sec-organize" style="display:none">organizing</div>
+        <div class="sec-lbl" id="sec-organize" style="display:none">organising</div>
         <button class="act-btn gold-btn" id="btn-tega" style="display:none"><span id="lbl-btn-tega">form district (tega)</span><span class="act-cost" id="c-tega">5 trico</span></button>
         <button class="act-btn gold-btn" id="btn-sumi" style="display:none"><span id="lbl-btn-sumi">declare region (sumi)</span><span class="act-cost" id="c-sumi">3 tega</span></button>
         <button class="act-btn gold-btn" id="btn-asa"  style="display:none"><span id="lbl-btn-asa">establish world council (asa'dala)</span><span class="act-cost" id="c-asa">3 sumi</span></button>
 
-        <div class="sec-lbl" id="sec-defend" style="display:none">defense</div>
+        <div class="sec-lbl" id="sec-defend" style="display:none">defence</div>
         <button class="act-btn warn-btn" id="btn-yaka" style="display:none"><span id="lbl-btn-yaka">issue challenge (yaka)</span><span class="act-cost">10 munu</span></button>
       </div>
 
@@ -611,18 +633,18 @@ var NIMAS = [
   { id:"agro",    name:"Agro-bolo",    desc:"Subsistence farming commune",   bonus:"kodu rate x2",         flavor:"The land is the bolo." },
   { id:"craft",   name:"Craft-bolo",   desc:"Workshops and tool-making",     bonus:"sibi rate x2",         flavor:"Everything built by hand." },
   { id:"eco",     name:"Eco-bolo",     desc:"Ecological, patient growth",    bonus:"larger kodu cap",      flavor:"No shortcuts. No waste." },
-  { id:"anarcho", name:"Anarcho-bolo", desc:"Horizontal organizing",         bonus:"munu x2",              flavor:"No gods, no masters." },
+  { id:"anarcho", name:"Anarcho-bolo", desc:"Horizontal organising",         bonus:"munu x2",              flavor:"No gods, no masters." },
   { id:"franco",  name:"Franko-bolo",  desc:"Exceptional hospitality",       bonus:"sila x3",              flavor:"The table is always set." },
   { id:"dada",    name:"Dada-bolo",    desc:"Chaos. Random bonuses.",        bonus:"???",                  flavor:"Why should an animal think?" },
   { id:"tao",     name:"Tao-bolo",     desc:"Contemplative, passive growth", bonus:"auto kodu trickle",    flavor:"Effortless action yields much." },
-  { id:"hash",    name:"Hash-bolo",    desc:"Traveler magnet",               bonus:"travelers x2",         flavor:"Guests always arrive." }
+  { id:"hash",    name:"Hash-bolo",    desc:"Traveller magnet",              bonus:"travellers x2",        flavor:"Guests always arrive." }
 ];
 
 var LOGS = {
   farm:  ["New rows of kodu planted along the south wall.","The garden expands into the old parking lot.","Compost added. Output improves.","The bolo harvests its first surplus."],
   sibi:  ["A workshop assembled from salvaged metal.","Shelters reinforced. The bolo feels more permanent.","Tools shared, not owned."],
   ibu:   ["A new ibu arrives, carrying only a taku.","Word reached someone in the city. They came.","A family arrives from a machine-district. They stay."],
-  host:  ["A traveler passes through, eats, sleeps, continues.","Sila offered. The guest's eyes widen — no payment needed.","Three travelers stay a week and teach new recipes."],
+  host:  ["A traveller passes through, eats, sleeps, continues.","Sila offered. The guest's eyes widen — no payment needed.","Three travellers stay a week and teach new recipes."],
   munu:  ["Stories of the bolo spread to nearby settlements.","Dispatches sent to other communities.","Travelers carry the bolo's name outward."],
   trico: ["Three bolos form a triangle. Exchange begins.","The trico sealed with a meal, not a contract.","A trico network forms. The machine notices nothing."],
   feno:  ["A barter agreement struck with a neighboring bolo.","Feno: no money changes hands. Goods do.","Exchange without price. The machine has no word for this."],
@@ -634,7 +656,7 @@ var LOGS = {
 
 var TICKERS = [
   "the ibu tend their kodu. the machine hums.",
-  "somewhere a traveler eats a meal they did not pay for.",
+  "somewhere a traveller is enjoying a meal they didn't need to pay for.",
   "the bolo does not remember what money was for.",
   "a child asks: who owns the garden? nobody. everyone.",
   "the planetary work machine loses one more screw.",
@@ -1000,7 +1022,7 @@ function tick() {
     G.travelersHosted++;
     G.munu = Math.min(G.munu + 1, G.munuMax);
     if (G.tick % 180 === 0) {
-      var tm = ["A traveler arrives. Eats, sleeps, continues.", "Two travelers share seeds from distant bolos.", "A wandering ibu stays three days, then moves on."];
+      var tm = ["A traveller arrives. Eats, sleeps, continues.", "Two travellers share seeds from distant bolos.", "A wandering ibu stays three days, then moves on."];
       addLog(tm[Math.floor(Math.random() * tm.length)], "ital");
     }
   }
@@ -1147,9 +1169,9 @@ function triggerRandomEvent() {
     G.kodu = Math.max(0, G.kodu - cost);
     G.sila = Math.max(0, G.sila - 4);
     var msgs = [
-      "⚠ A troubled traveler strains the bolo. " + cost + " " + L("kodu","food") + " consumed, " + L("sila","hospitality") + " strained.",
+      "⚠ A troubled traveller strains the bolo. " + cost + " " + L("kodu","food") + " consumed, " + L("sila","hospitality") + " strained.",
       "⚠ Difficult guests arrive and refuse to leave. Resources drain. " + L("sila","Hospitality") + " suffers.",
-      "⚠ A traveler falls ill in the bolo. Care is given freely, but it costs " + cost + " " + L("kodu","food") + "."
+      "⚠ A traveller falls ill in the bolo. Care is given freely, but it costs " + cost + " " + L("kodu","food") + "."
     ];
     addLog(rnd(msgs), "bad");
     addLog("Offer more " + L("sila","hospitality") + " to rebuild trust.", "ital");
@@ -1542,6 +1564,17 @@ document.getElementById("instr-start-btn").addEventListener("click", function() 
   document.getElementById("preface").style.display = "flex";
   window.scrollTo(0, 0);
 });
+
+// ── HIGH CONTRAST ────────────────────────────────────────────────────────────
+function setHC(on) {
+  document.body.classList.toggle("hc", on);
+  document.getElementById("hc-check-title").checked = on;
+  document.getElementById("hc-check-game").checked = on;
+  try { localStorage.setItem("bb-hc", on ? "1" : "0"); } catch(e) {}
+}
+document.getElementById("hc-check-title").addEventListener("change", function() { setHC(this.checked); });
+document.getElementById("hc-check-game").addEventListener("change",  function() { setHC(this.checked); });
+try { if (localStorage.getItem("bb-hc") === "1") setHC(true); } catch(e) {}
 
 })();
 </script>
