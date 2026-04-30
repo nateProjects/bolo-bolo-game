@@ -959,14 +959,15 @@ function tick() {
 
   // Tao passive bonus
   if (G.nimaId === "tao" && G.tick % 60 === 0) {
-    G.kodu = Math.min(G.kodu + G.ibu * 0.2, G.koduMax);
+    G.kodu = Math.min(G.kodu + 2, G.koduMax);
   }
 
   // Dada random events
   if (G.nimaId === "dada" && G.tick % 90 === 0) {
     var r = Math.random();
-    if (r < 0.35) { G.kodu = Math.min(G.kodu + 15, G.koduMax); addLog("Dada event: unexpected abundance.", "ital"); }
+    if (r < 0.30) { G.kodu = Math.min(G.kodu + 15, G.koduMax); addLog("Dada event: unexpected abundance.", "ital"); }
     else if (r < 0.55) { G.munu = Math.min(G.munu + munuMult() * 8, G.munuMax); addLog("Dada event: a stranger tells your story.", "ital"); }
+    else if (r < 0.75) { G.sibi = Math.min(G.sibi + 8, G.sibiMax); addLog("Dada event: unexpected craft.", "ital"); }
   }
 
   // ── MUNU DECAY ───────────────────────────────────────────────────────────
@@ -1031,7 +1032,7 @@ function tick() {
 
   // ── MACHINE COUNTER-OFFENSIVE ─────────────────────────────────────────────
   // Below 30% grip the machine tries to reclaim free/allied cells
-  if (!G.asaDone && G.machineGrip > 0 && G.machineGrip < 30 && G.tick % 150 === 0) {
+  if (!G.asaDone && G.machineGrip < 30 && G.tick % 150 === 0) {
     var reclaimed = 0;
     for (var i = 0; i < 64; i++) {
       if ((G.map[i] === "free" || G.map[i] === "allied") && Math.random() < 0.15 && reclaimed < 2) {
@@ -1069,9 +1070,9 @@ function tick() {
 
   // ── SUMI SECESSION ────────────────────────────────────────────────────────
   // If sumi secession is active, drains munu slowly — manageable but urgent
-  if (G.sumiSeceding && G.tick % 70 === 0) {
-    if (G.munu >= 2) {
-      G.munu -= 2;
+  if (G.sumiSeceding && G.tick % 40 === 0) {
+    if (G.munu >= 3) {
+      G.munu -= 3;
     } else {
       // Can't hold it — lose a sumi
       G.sumiSeceding = false;
@@ -1303,6 +1304,7 @@ function actions() {
       setTimeout(function() {
         if (!G || G.bandits.length === 0) return;
         var idx = G.bandits.shift();
+        if (idx === undefined) return;
         G.map[idx] = "machine";
         renderMap(); addLog("The bandit-bolo dissolves. Predation proved unprofitable.", "good");
         updateUI();
