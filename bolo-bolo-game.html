@@ -79,7 +79,8 @@
     [data-mobile="machine"]       { order: 6; }
     [data-mobile="region"]        { order: 7; }
     [data-mobile="nima"]          { order: 8; }
-    [data-mobile="achievements"]  { order: 9; }
+    [data-mobile="neighbours"]    { order: 9; }
+    [data-mobile="achievements"]  { order: 10; }
 
     /* Variant A: actions, resources, stats, dispatches */
     .layout.mobile-a [data-mobile="actions"]    { order: 1; }
@@ -143,7 +144,7 @@
   .ach-row.ach-done { color: var(--accent); opacity: 1; }
   .ach-mark { width: 1em; text-align: center; flex-shrink: 0; }
 
-  .log-box { height: 115px; overflow-y: auto; font-size: 11px; line-height: 1.5; padding: 0.4rem; background: var(--bg); }
+  .log-box { height: 172px; overflow-y: auto; font-size: 11px; line-height: 1.5; padding: 0.4rem; background: var(--bg); }
   .log-entry { margin-bottom: 0.12rem; }
   .log-ts { color: var(--text2); }
   .log-entry.good .log-msg { color: var(--accent); }
@@ -556,6 +557,7 @@
         <div class="res-row" id="feno-row" style="display:none">
           <span class="res-lbl" id="lbl-r-feno"><b>feno</b> (trade links)</span><span class="res-val" id="r-feno">0</span>
         </div>
+        <div id="ticker" style="font-size:10px;color:var(--text2);font-style:italic;margin-top:0.6rem;padding-top:0.5rem;border-top:1px solid var(--border);">the ibu tend their kodu. the machine hums in the distance.</div>
       </div>
 
       <div class="panel" id="machine-panel" data-mobile="machine" style="display:none">
@@ -570,6 +572,11 @@
         <div id="nima-flavor" style="font-size:11px;color:var(--text2);font-style:italic;margin-bottom:0.4rem;"></div>
         <div id="nima-bonus" style="font-size:11px;color:var(--accent3);"></div>
       </div>
+
+      <div class="panel" id="neighbours-panel" data-mobile="neighbours" style="display:none">
+        <div class="panel-title">neighbouring bolos</div>
+        <div id="neighbours-list" style="font-size:11px;"></div>
+      </div>
     </div>
 
     <!-- CENTRE COL -->
@@ -577,7 +584,6 @@
       <div class="panel" data-mobile="dispatches">
         <div class="panel-title" id="lbl-log">dispatches from the bolo</div>
         <div class="log-box" id="log-box"></div>
-        <div class="ticker" id="ticker">the ibu tend their kodu. the machine hums in the distance.</div>
         <div id="epilogue-box" style="display:none; margin-top:0.8rem; text-align:center;">
           <button class="btn" id="epilogue-btn">begin again</button>
         </div>
@@ -609,6 +615,17 @@
         <div class="sec-lbl" id="sec-hospitality" style="display:none">hospitality</div>
         <button class="act-btn" id="btn-host" style="display:none"><span id="lbl-btn-host">offer hospitality (sila)</span><span class="act-cost">10 kodu</span></button>
         <button class="act-btn" id="btn-munu" style="display:none"><span id="lbl-btn-munu">spread reputation (munu)</span><span class="act-cost">5 sibi</span></button>
+
+        <div class="sec-lbl" id="sec-visit" style="display:none">a visitor waits</div>
+        <div id="visit-intro" style="font-size:10px;color:var(--text2);font-style:italic;margin:-0.1rem 0 0.4rem;"></div>
+        <button class="act-btn" id="btn-visitWelcome" style="display:none"><span id="lbl-btn-visitWelcome">welcome them (sila)</span><span class="act-cost" id="c-visitWelcome">10 kodu, 4 sibi</span></button>
+        <button class="act-btn" id="btn-visitTrade" style="display:none"><span id="lbl-btn-visitTrade">trade fairly</span><span class="act-cost" id="c-visitTrade">6 sibi</span></button>
+        <button class="act-btn" id="btn-visitTurnaway" style="display:none"><span id="lbl-btn-visitTurnaway">turn them away</span><span class="act-cost">free</span></button>
+
+        <div class="sec-lbl" id="sec-grudge" style="display:none">an estranged neighbour</div>
+        <div id="grudge-intro" style="font-size:10px;color:var(--text2);font-style:italic;margin:-0.1rem 0 0.4rem;"></div>
+        <button class="act-btn" id="btn-grudgeReconcile" style="display:none"><span id="lbl-btn-grudgeReconcile">reconcile</span><span class="act-cost">25 kodu</span></button>
+        <button class="act-btn warn-btn" id="btn-grudgeExpel" style="display:none"><span id="lbl-btn-grudgeExpel">expel (yaka)</span><span class="act-cost">10 munu</span></button>
 
         <div class="sec-lbl" id="sec-exchange" style="display:none">exchange</div>
         <button class="act-btn" id="btn-trico" style="display:none"><span id="lbl-btn-trico">form exchange triangle (trico)</span><span class="act-cost" id="c-trico">30 munu</span></button>
@@ -659,6 +676,73 @@ var NIMAS = [
   { id:"tao",     name:"Tao-bolo",     desc:"Contemplative, passive growth", bonus:"auto kodu trickle",    flavor:"Effortless action yields much." },
   { id:"hash",    name:"Hash-bolo",    desc:"Traveller magnet",              bonus:"travellers x2",         flavor:"Guests always arrive." }
 ];
+
+// ── VISITORS — named neighbouring bolos, ported from bolo-bolo-sim.py's
+// VISITOR_PACKS['v2'] (validated there across ~150 simulated runs before
+// porting: no soft-locks even when grudges go unresolved, and the kindred
+// affinity mechanic below produces a measurable, real relationship-arc
+// difference depending on which nima the run ends up with). Tagged to the
+// game's own nima ids (Ridge-bolo=hash, Marsh-bolo=craft, Grove-bolo=eco) —
+// picked because those nimas' existing flavour already reads as hospitality/
+// craft/conservation-minded. Reuses the existing absorb/yaka verbs (as
+// "reconcile"/"expel") for hostile visitors rather than inventing new ones,
+// so an estranged neighbour plays like the bandit-bolo mechanic the player
+// already understands.
+var VISIT_COOLDOWN = 150;      // ticks (~15s) between visitor arrivals
+var ALLY_THRESHOLD = 30;
+var HOSTILE_THRESHOLD = -30;
+var AFFINITY_MULT = 1.5;       // kindred-nima trust gain multiplier
+
+var VISITOR_ROSTER = [
+  { name: "Ridge-bolo", nima: "hash" },
+  { name: "Marsh-bolo", nima: "craft" },
+  { name: "Grove-bolo", nima: "eco" }
+];
+
+var VISITOR_FLAVOR = {
+  "Ridge-bolo": {
+    first:    "Ridge-bolo sends word ahead: they are between harvests, and their yalu are hungry.",
+    repeat:   ["A knot of Ridge-bolo travellers appears at the frontier again.",
+               "More of Ridge-bolo's yalu drift in, the same unhurried way as before.",
+               "Ridge-bolo sends another party — no message this time, just people."],
+    welcome:  "You lay out kodu and sibi without asking why. Ridge-bolo takes note: this is a bolo that keeps sila.",
+    trade:    "Goods change hands, measured and fair. Ridge-bolo nods — correct, if not warm.",
+    turnAway: "You have nothing to spare today. Ridge-bolo's yalu turn back toward the ridge, saying little.",
+    ally:     "Ridge-bolo now sends kodu unasked, the way sila was meant to work.",
+    hostile:  "Ridge-bolo stops sending word. What comes from the ridge now takes without asking.",
+    reconcile:"You open your stores to Ridge-bolo without conditions. The grudge doesn't survive contact with sila.",
+    expel:    "A yaka is issued. Ridge-bolo's exchange with your bolo ends — for good, this time.",
+    kindred:  "Ridge-bolo's yalu recognise something familiar in how easily your bolo takes people in."
+  },
+  "Marsh-bolo": {
+    first:    "Marsh-bolo's gano sends a delegation, sibi in hand, looking to trade rather than beg.",
+    repeat:   ["Marsh-bolo's traders are back, sibi bundled and ready.",
+               "Marsh-bolo's gano sends another shipment out to test the market.",
+               "A Marsh-bolo cart arrives, wheels creaking under new stock."],
+    welcome:  "You host them properly — food, rest, no ledger kept. Marsh-bolo isn't used to being treated as more than a trading partner.",
+    trade:    "Sibi for sibi, straightforward. Marsh-bolo respects a fair exchange.",
+    turnAway: "You wave them off before the goods are even unpacked. Marsh-bolo repacks without a word.",
+    ally:     "Marsh-bolo starts sending finished goods before you ask for them.",
+    hostile:  "Marsh-bolo's gano stops offering fair trades. What they send now, they send to take.",
+    reconcile:"You give without expecting sibi in return. Marsh-bolo lowers its guard.",
+    expel:    "A yaka is issued. Marsh-bolo's workshops close their gates to your bolo.",
+    kindred:  "Marsh-bolo's gano recognises a fellow craft-minded bolo — the trade goes easier from here."
+  },
+  "Grove-bolo": {
+    first:    "Grove-bolo sends a small party — they keep close counts of everything, taku-fashion, and watch how you count too.",
+    repeat:   ["Grove-bolo's counters return, still watching.",
+               "Grove-bolo sends its tally-keepers again, taku ledgers in hand.",
+               "Another careful delegation from Grove-bolo, counting as they walk."],
+    welcome:  "You give more than the taku would strictly allow. Grove-bolo studies you for a long moment before accepting.",
+    trade:    "An exact trade, nothing over. Grove-bolo approves of the precision.",
+    turnAway: "You send them away empty-handed. Grove-bolo records it — they always record it.",
+    ally:     "Grove-bolo's caution finally breaks. They begin sharing surplus they'd normally hoard.",
+    hostile:  "Grove-bolo's counters stop coming. Their taku now excludes your bolo entirely.",
+    reconcile:"Patient, exact generosity — the only kind Grove-bolo trusts — wins them back.",
+    expel:    "A yaka is issued. Grove-bolo strikes your bolo from its taku for good.",
+    kindred:  "Grove-bolo recognises its own caution mirrored back — the counting relaxes, just slightly."
+  }
+};
 
 var LOGS = {
   farm:  ["New rows of kodu planted along the south wall.","The garden expands into the old parking lot.","Compost added. Output improves.","The bolo harvests its first surplus."],
@@ -858,6 +942,11 @@ function initGame(name, asapili, nima) {
     map: [], bandits: [],
     lastBanditTick: 0, lastTravelerTick: 0, lastAutoHostTick: 0,
     lastEventTick: 0,
+    visitors: VISITOR_ROSTER.map(function(v) {
+      return { name: v.name, nima: v.nima, trust: 0, visits: 0, met: false,
+               ally: false, hostile: false, lost: false, kindredShown: false };
+    }),
+    lastVisitTick: 0, currentVisitor: null, grudges: [],
     machineRevealTick: null, exchangeRevealTick: null,
     harvestPenalty: 0,
     harvestBaseRate: 0,
@@ -991,6 +1080,8 @@ function reportOfflineProgress(result, elapsedSeconds) {
   if (result.events.harvest > 0) addLog("A bad harvest passed through while you were away.", "ital");
   if (result.events.travelerTrouble > 0) addLog("Some traveller trouble occurred while you were away.", "ital");
   if (result.events.ibuSplit > 0) addLog("An internal disagreement arose while you were away.", "ital");
+  if (G.currentVisitor) addLog(G.currentVisitor + " has been waiting at the frontier since before you left.", "ital");
+  if (G.grudges.length > 0) addLog("⚠ " + G.grudges.length + " estranged neighbour" + (G.grudges.length > 1 ? "s" : "") + " still unresolved.", "bad");
 }
 
 function resumeGame(saved) {
@@ -1004,6 +1095,15 @@ function resumeGame(saved) {
   if (G.lastAutoHostTick === undefined) G.lastAutoHostTick = 0;
   if (!G.nimaTally) G.nimaTally = { farm: 0, sibi: 0, host: 0, munu: 0 };
   if (G.stage3EnteredTick === undefined) G.stage3EnteredTick = 0;
+  if (!G.visitors) {
+    G.visitors = VISITOR_ROSTER.map(function(v) {
+      return { name: v.name, nima: v.nima, trust: 0, visits: 0, met: false,
+               ally: false, hostile: false, lost: false, kindredShown: false };
+    });
+  }
+  if (G.lastVisitTick === undefined) G.lastVisitTick = G.tick;
+  if (G.currentVisitor === undefined) G.currentVisitor = null;
+  if (!G.grudges) G.grudges = [];
 
   document.getElementById("game").style.display = "block";
   document.getElementById("game-layout").classList.add("mobile-" + MOBILE_LAYOUT);
@@ -1357,6 +1457,36 @@ function tick() {
     }
   }
 
+  // ── VISITORS (named neighbouring bolos) ───────────────────────────────────
+  // Unlike the anonymous traveller trickle above (which stays silent — pure
+  // number, no UI), a named visitor interrupts and waits for an explicit
+  // response; nothing auto-resolves it, including across an offline
+  // fast-forward, so a visitor who arrives while you're away is just still
+  // standing there when you get back (no separate offline-AI logic needed).
+  if (!G.currentVisitor && G.sila >= 5 && G.tick - G.lastVisitTick >= VISIT_COOLDOWN) {
+    var visitTarget = pickVisitTarget();
+    if (visitTarget) {
+      G.currentVisitor = visitTarget.name;
+      var vf = VISITOR_FLAVOR[visitTarget.name];
+      var introLine = !visitTarget.met ? vf.first : vf.repeat[visitTarget.visits % vf.repeat.length];
+      addLog(localizeMsg(introLine), "ital");
+    }
+  }
+
+  // Grudge drain — same magnitude as one bandit, and like bandits it just
+  // keeps draining (including offline) until the player resolves it via the
+  // reconcile/expel buttons; no auto-timeout, matching the bandit-bolo model.
+  if (G.grudges.length > 0 && G.tick % 20 === 0) {
+    G.kodu = Math.max(0, G.kodu - G.grudges.length * 0.3);
+  }
+
+  // Ally passive gift trickle
+  var allyCount = 0;
+  for (var vci = 0; vci < G.visitors.length; vci++) { if (G.visitors[vci].ally) allyCount++; }
+  if (allyCount > 0 && G.tick % 10 === 0) {
+    G.kodu = Math.min(G.kodu + allyCount * 0.15, G.koduMax);
+  }
+
   // ── BANDIT BOLO SPAWN ────────────────────────────────────────────────────
   // Prefers machine cells on the frontier (adjacent to your own network) so
   // bandits feel like they're raiding your territory's edge, not spawning
@@ -1471,10 +1601,12 @@ function tick() {
   }
 
   if (G.tick % 50 === 0) {
-    G.tickerIdx = (G.tickerIdx + 1) % TICKERS.length;
-    el("ticker").textContent = TICKERS[G.tickerIdx];
     checkTutorial();
     saveGame();
+  }
+  if (G.tick % 150 === 0) { // ambient ticker rotates every ~15s, independent of the tutorial/save cadence above
+    G.tickerIdx = (G.tickerIdx + 1) % TICKERS.length;
+    el("ticker").textContent = TICKERS[G.tickerIdx];
   }
 
   // Tick-based staged reveals for machine and exchange (set by assignNima)
@@ -1569,6 +1701,98 @@ function sibiCost()  { return Math.floor(10 * Math.pow(1.25, G.sibiLv - 1)); }
 function ibuCost()   { return Math.floor(10 * Math.pow(1.2, Math.floor(G.ibu / 5))); }
 function munuMult()  { return G.nimaId === "anarcho" ? 2 : 1; }
 function silaMult()  { return G.nimaId === "franco" ? 3 : (G.nimaId === "hash" ? 2 : 1); }
+
+// ── VISITOR HELPERS ──────────────────────────────────────────────────────
+function findVisitor(name) {
+  for (var i = 0; i < G.visitors.length; i++) if (G.visitors[i].name === name) return G.visitors[i];
+  return null;
+}
+
+function pickVisitTarget() {
+  var pool = [];
+  for (var i = 0; i < G.visitors.length; i++) {
+    var v = G.visitors[i];
+    if (!v.hostile && !v.lost) pool.push(v);
+  }
+  if (pool.length === 0) return null;
+  var unmet = pool.filter(function(v) { return !v.met; });
+  if (unmet.length > 0) return unmet[0]; // first-time intros before repeat visits
+  pool.sort(function(a, b) { return a.visits - b.visits; }); // round-robin
+  return pool[0];
+}
+
+function resolveVisit(choice) {
+  if (!G || !G.currentVisitor) return;
+  var v = findVisitor(G.currentVisitor);
+  if (!v) { G.currentVisitor = null; return; }
+  var flavor = VISITOR_FLAVOR[v.name];
+
+  var canWelcome = G.kodu >= 10 && G.sibi >= 4;
+  var canTrade = G.sibi >= 6;
+  if (choice === "welcome" && !canWelcome) return;
+  if (choice === "trade" && !canTrade) return;
+
+  v.met = true;
+  v.visits++;
+
+  // Kindred-nima affinity: once your own nima is assigned, a visitor sharing
+  // it gains trust faster and forgives a turnAway more easily — "kindred
+  // bolos recognise their own." Validated in the sim as the mechanic that
+  // actually varies outcomes run-to-run, since which visitor gets it depends
+  // on how this playthrough's nima was earned.
+  var kindred = !!(G.nimaId && v.nima === G.nimaId);
+  if (kindred && !v.kindredShown) {
+    v.kindredShown = true;
+    if (flavor.kindred) addLog(localizeMsg(flavor.kindred), "spec");
+  }
+
+  if (choice === "welcome") {
+    G.kodu -= 10; G.sibi -= 4;
+    v.trust = Math.min(100, v.trust + (kindred ? 20 * AFFINITY_MULT : 20));
+    G.munu = Math.min(G.munu + munuMult() * 4, G.munuMax);
+    G.sila = Math.min(G.sila + 2, G.silaMax);
+  } else if (choice === "trade") {
+    G.sibi -= 6;
+    v.trust = Math.min(100, v.trust + (kindred ? 8 * AFFINITY_MULT : 8));
+    G.munu = Math.min(G.munu + munuMult() * 2, G.munuMax);
+  } else { // turnAway
+    v.trust = Math.max(-100, v.trust - (kindred ? 6 * 0.5 : 6));
+  }
+  if (flavor[choice]) addLog(localizeMsg(flavor[choice]), choice === "turnAway" ? "ital" : "good");
+
+  if (v.trust >= ALLY_THRESHOLD && !v.ally) {
+    v.ally = true;
+    addLog(localizeMsg(flavor.ally), "spec");
+  }
+  if (v.trust <= HOSTILE_THRESHOLD && !v.hostile) {
+    v.hostile = true;
+    G.grudges.push(v.name);
+    addLog(localizeMsg(flavor.hostile), "bad");
+  }
+
+  G.currentVisitor = null;
+  G.lastVisitTick = G.tick;
+}
+
+function resolveGrudge(action) {
+  if (!G || G.grudges.length === 0) return;
+  var v = findVisitor(G.grudges[0]);
+  if (!v) { G.grudges.shift(); return; }
+  var flavor = VISITOR_FLAVOR[v.name];
+  if (action === "reconcile") {
+    if (G.kodu < 25) return;
+    G.kodu -= 25;
+    G.grudges.shift();
+    v.hostile = false; v.trust = 10;
+    addLog(localizeMsg(flavor.reconcile), "good");
+  } else if (action === "expel") {
+    if (G.munu < 10) return;
+    G.munu -= 10;
+    G.grudges.shift();
+    v.hostile = false; v.lost = true;
+    addLog(localizeMsg(flavor.expel), "bad");
+  }
+}
 
 // Which of {farm, sibi, host, munu} are affordable right now — used to tell
 // a genuine choice (multiple viable) from a forced default (only one
@@ -1923,6 +2147,54 @@ function updateUI() {
     show("btn-absorb"); setDis("btn-absorb", G.kodu < 25);
   }
 
+  // ── VISITORS UI ────────────────────────────────────────────────────────
+  // Unlike most sections here (which reveal once and never hide again), the
+  // visit/grudge panels genuinely show and hide each frame — leaving "a
+  // visitor waits" on screen after they've already left would read as a
+  // stale, clickable-looking dead end rather than a resolved moment.
+  var visitEls = ["sec-visit", "btn-visitWelcome", "btn-visitTrade", "btn-visitTurnaway"];
+  if (G.currentVisitor) {
+    var cv = findVisitor(G.currentVisitor);
+    visitEls.forEach(function(id) { var e = el(id); if (e) e.style.display = ""; });
+    setText("lbl-btn-visitWelcome", "welcome them (sila)");
+    setText("lbl-btn-visitTrade", "trade with them");
+    setText("lbl-btn-visitTurnaway", "turn them away");
+    setDis("btn-visitWelcome", G.kodu < 10 || G.sibi < 4);
+    setDis("btn-visitTrade", G.sibi < 6);
+    setText("visit-intro", "(" + cv.name + " waits at the frontier)");
+  } else {
+    visitEls.forEach(function(id) { var e = el(id); if (e) e.style.display = "none"; });
+    setText("visit-intro", "");
+  }
+
+  var grudgeEls = ["sec-grudge", "btn-grudgeReconcile", "btn-grudgeExpel"];
+  if (G.grudges.length > 0) {
+    var gv = findVisitor(G.grudges[0]);
+    grudgeEls.forEach(function(id) { var e = el(id); if (e) e.style.display = ""; });
+    setText("grudge-intro", "(" + (gv ? gv.name : "a neighbour") + " has grown hostile)");
+    setDis("btn-grudgeReconcile", G.kodu < 25);
+    setDis("btn-grudgeExpel", G.munu < 10);
+  } else {
+    grudgeEls.forEach(function(id) { var e = el(id); if (e) e.style.display = "none"; });
+  }
+
+  if (G.tutStage >= 2) {
+    var neighboursPanel = el("neighbours-panel"); if (neighboursPanel) neighboursPanel.style.display = "";
+    var rows = G.visitors.map(function(v) {
+      var status;
+      if (v.lost) status = "cut off (expelled)";
+      else if (v.hostile) status = "estranged ⚠";
+      else if (v.ally) status = "ally ✓";
+      else if (!v.met) status = "unknown";
+      else status = "acquainted (trust " + Math.round(v.trust) + ")";
+      var kindredTag = (G.nimaId && v.nima === G.nimaId) ? " ◆" : "";
+      return "<div style='display:flex;justify-content:space-between;padding:0.15rem 0;'>"
+        + "<span>" + v.name + kindredTag + "</span>"
+        + "<span style='color:var(--text2);'>" + status + "</span></div>";
+    }).join("");
+    setHTML("neighbours-list", rows);
+  }
+
   var items = [];
   if (G.tricoCount > 0) items.push(G.tricoCount + " trico agreement" + (G.tricoCount > 1 ? "s" : ""));
   if (G.feno > 0)       items.push(G.feno + " feno link" + (G.feno > 1 ? "s" : ""));
@@ -1990,7 +2262,9 @@ function addLog(msg, type) {
       + "<span class='log-msg'>" + e.msg + "</span>"
       + "</div>";
   }
-  el("log-box").innerHTML = html;
+  var logBox = el("log-box");
+  logBox.innerHTML = html;
+  logBox.scrollTop = 0; // newest entry is always at index 0 — keep it in view even if the box was scrolled down
 }
 
 function el(id)          { return document.getElementById(id); }
@@ -2074,6 +2348,18 @@ document.getElementById("epilogue-btn").addEventListener("click", function() {
 window.addEventListener("beforeunload", function() { if (G) saveGame(); });
 
 wireButtons();
+
+var visitBtnIds = { visitWelcome: "welcome", visitTrade: "trade", visitTurnaway: "turnAway" };
+Object.keys(visitBtnIds).forEach(function(id) {
+  var btn = document.getElementById("btn-" + id);
+  if (btn) btn.addEventListener("click", function() { if (G) { resolveVisit(visitBtnIds[id]); updateUI(); } });
+});
+var grudgeBtnIds = { grudgeReconcile: "reconcile", grudgeExpel: "expel" };
+Object.keys(grudgeBtnIds).forEach(function(id) {
+  var btn = document.getElementById("btn-" + id);
+  if (btn) btn.addEventListener("click", function() { if (G) { resolveGrudge(grudgeBtnIds[id]); updateUI(); } });
+});
+
 buildNimaGrid();
 
 // Instructions nav

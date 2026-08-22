@@ -143,7 +143,16 @@ def new_game(chosen_nima=None):
             'koduZeroTicks': 0,     # ticks spent at 0 food
             'totalActions': 0,
             'peakIbu': 5,           # highest population reached
+            # ── visitor-layer metrics (prototype, unused unless run_once_social) ──
+            'visitorMilestones': [],  # (tick, label) for ally/hostile transitions
+            'reconciled': 0,
+            'expelled': 0,
         },
+        # visitor-layer state — dead/inert weight for the baseline sim, only
+        # touched by process_visitors/process_grudges (run_once_social path),
+        # so existing baseline runs are byte-for-byte unaffected.
+        'visitors': None,
+        'lastVisitTick': -10**9,
     }
     G['map'] = ['machine'] * 64
     G['map'][0] = 'yours'
@@ -654,6 +663,289 @@ def random_prefs():
     keys = ['farm', 'sibi', 'host', 'munu']
     return {k: random.uniform(0.2, 2.0) for k in keys}
 
+# ── VISITORS — narrative relationship layer (PROTOTYPE, not yet in the game) ─
+# Named neighbour-bolos that recur across a playthrough instead of the
+# anonymous "traveller" pop-in. Each visit is one discrete choice — welcome /
+# trade / turn away — with a resource cost and a trust delta that PERSISTS
+# per visitor. Trust gates two threads:
+#   trust >= ALLY_THRESHOLD    -> becomes an ally: small passive gift trickle
+#                                  for the rest of the game.
+#   trust <= HOSTILE_THRESHOLD -> becomes a "grudge": drains kodu every tick
+#                                  (same magnitude as one bandit) until the
+#                                  player resolves it with the game's EXISTING
+#                                  verbs — absorb (reconcile, costs kodu,
+#                                  trust resets and they can be seen again) or
+#                                  yaka (expel, costs munu, permanently lost).
+# Deliberately reuses absorb/yaka rather than inventing new verbs, so "a
+# neighbour you snubbed turns hostile" plays exactly like the bandit-bolo
+# mechanic the player already understands — narrative reframing of existing
+# numbers, not new systems.
+#
+# Wired up via run_once_social() only — new_game/tick/do_action are untouched
+# so every previously-validated baseline run above still behaves identically.
+
+# ── VISITOR PACKS — versioned so an old config stays runnable for direct
+# comparison rather than being overwritten. Add new packs as 'v3', 'v4', etc;
+# never mutate a shipped pack's content in place. run_once_social(pack='v2')
+# selects which one drives a given batch of runs.
+#
+# VERSION LOG
+#   v1 — first prototype. 3 independent personalities, flavour grounded in
+#        real bolo'bolo glossary terms (yalu/gano/taku) but NOT tied to the
+#        game's own nima system. Single repeat-visit line each (later found
+#        repetitive in long traces). No mechanical link to player identity.
+#   v2 — ties each visitor to one of the game's existing nima archetypes
+#        (hash/craft/eco — chosen because their built-in flavour already
+#        reads as hospitality/craft/conservation-minded, so no rewrite of
+#        the core v1 lines was needed, just reframing + extension). Adds:
+#          - 3 rotating repeat-visit lines per visitor (kills the copy-paste
+#            feel of a single repeated line across a playthrough)
+#          - an affinity mechanic: once the player's own nima is assigned,
+#            a visitor sharing that nima gains trust faster from the player
+#            (kindred bolos recognise their own) and is more forgiving of a
+#            turnAway — the actual replayability lever, since which visitor
+#            that is depends on how THIS run's nima was earned.
+VISITOR_PACKS = {}
+
+VISITOR_PACKS['v1'] = {
+    'label': 'v1 (independent personalities, no nima tie-in)',
+    'ally_threshold': 30,
+    'hostile_threshold': -30,
+    'visit_cooldown': 150,  # ticks (~15s) between any two visits
+    'affinity_multiplier': None,  # no affinity mechanic in v1
+    'visitors': [
+        {'name': 'Ridge-bolo', 'nima': None},
+        {'name': 'Marsh-bolo', 'nima': None},
+        {'name': 'Grove-bolo', 'nima': None},
+    ],
+    'flavor': {
+        'Ridge-bolo': {
+            'first':    "Ridge-bolo sends word ahead: they are between harvests, and their yalu are hungry.",
+            'repeat':   ["A knot of Ridge-bolo travellers appears at the frontier again."],
+            'welcome':  "You lay out kodu and sibi without asking why. Ridge-bolo takes note: this is a bolo that keeps sila.",
+            'trade':    "Goods change hands, measured and fair. Ridge-bolo nods — correct, if not warm.",
+            'turnAway': "You have nothing to spare today. Ridge-bolo's yalu turn back toward the ridge, saying little.",
+            'ally':     "Ridge-bolo now sends kodu unasked, the way sila was meant to work.",
+            'hostile':  "Ridge-bolo stops sending word. What comes from the ridge now takes without asking.",
+            'reconcile':"You open your stores to Ridge-bolo without conditions. The grudge doesn't survive contact with sila.",
+            'expel':    "A yaka is issued. Ridge-bolo's exchange with your bolo ends — for good, this time.",
+        },
+        'Marsh-bolo': {
+            'first':    "Marsh-bolo's gano sends a delegation, sibi in hand, looking to trade rather than beg.",
+            'repeat':   ["Marsh-bolo's traders are back, sibi bundled and ready."],
+            'welcome':  "You host them properly — food, rest, no ledger kept. Marsh-bolo isn't used to being treated as more than a trading partner.",
+            'trade':    "Sibi for sibi, straightforward. Marsh-bolo respects a fair exchange.",
+            'turnAway': "You wave them off before the goods are even unpacked. Marsh-bolo repacks without a word.",
+            'ally':     "Marsh-bolo starts sending finished goods before you ask for them.",
+            'hostile':  "Marsh-bolo's gano stops offering fair trades. What they send now, they send to take.",
+            'reconcile':"You give without expecting sibi in return. Marsh-bolo lowers its guard.",
+            'expel':    "A yaka is issued. Marsh-bolo's workshops close their gates to your bolo.",
+        },
+        'Grove-bolo': {
+            'first':    "Grove-bolo sends a small party — they keep close counts of everything, taku-fashion, and watch how you count too.",
+            'repeat':   ["Grove-bolo's counters return, still watching."],
+            'welcome':  "You give more than the taku would strictly allow. Grove-bolo studies you for a long moment before accepting.",
+            'trade':    "An exact trade, nothing over. Grove-bolo approves of the precision.",
+            'turnAway': "You send them away empty-handed. Grove-bolo records it — they always record it.",
+            'ally':     "Grove-bolo's caution finally breaks. They begin sharing surplus they'd normally hoard.",
+            'hostile':  "Grove-bolo's counters stop coming. Their taku now excludes your bolo entirely.",
+            'reconcile':"Patient, exact generosity — the only kind Grove-bolo trusts — wins them back.",
+            'expel':    "A yaka is issued. Grove-bolo strikes your bolo from its taku for good.",
+        },
+    },
+}
+
+VISITOR_PACKS['v2'] = {
+    'label': 'v2 (nima-tagged: Ridge=hash, Marsh=craft, Grove=eco; rotating repeats; kindred affinity)',
+    'ally_threshold': 30,
+    'hostile_threshold': -30,
+    'visit_cooldown': 150,
+    'affinity_multiplier': 1.5,  # kindred-nima trust gain multiplier (see resolve_visit)
+    'visitors': [
+        {'name': 'Ridge-bolo', 'nima': 'hash'},
+        {'name': 'Marsh-bolo', 'nima': 'craft'},
+        {'name': 'Grove-bolo', 'nima': 'eco'},
+    ],
+    'flavor': {
+        'Ridge-bolo': {
+            'first':    "Ridge-bolo sends word ahead: they are between harvests, and their yalu are hungry.",
+            'repeat':   ["A knot of Ridge-bolo travellers appears at the frontier again.",
+                         "More of Ridge-bolo's yalu drift in, the same unhurried way as before.",
+                         "Ridge-bolo sends another party — no message this time, just people."],
+            'welcome':  "You lay out kodu and sibi without asking why. Ridge-bolo takes note: this is a bolo that keeps sila.",
+            'trade':    "Goods change hands, measured and fair. Ridge-bolo nods — correct, if not warm.",
+            'turnAway': "You have nothing to spare today. Ridge-bolo's yalu turn back toward the ridge, saying little.",
+            'ally':     "Ridge-bolo now sends kodu unasked, the way sila was meant to work.",
+            'hostile':  "Ridge-bolo stops sending word. What comes from the ridge now takes without asking.",
+            'reconcile':"You open your stores to Ridge-bolo without conditions. The grudge doesn't survive contact with sila.",
+            'expel':    "A yaka is issued. Ridge-bolo's exchange with your bolo ends — for good, this time.",
+            'kindred':  "Ridge-bolo's yalu recognise something familiar in how easily your bolo takes people in.",
+        },
+        'Marsh-bolo': {
+            'first':    "Marsh-bolo's gano sends a delegation, sibi in hand, looking to trade rather than beg.",
+            'repeat':   ["Marsh-bolo's traders are back, sibi bundled and ready.",
+                         "Marsh-bolo's gano sends another shipment out to test the market.",
+                         "A Marsh-bolo cart arrives, wheels creaking under new stock."],
+            'welcome':  "You host them properly — food, rest, no ledger kept. Marsh-bolo isn't used to being treated as more than a trading partner.",
+            'trade':    "Sibi for sibi, straightforward. Marsh-bolo respects a fair exchange.",
+            'turnAway': "You wave them off before the goods are even unpacked. Marsh-bolo repacks without a word.",
+            'ally':     "Marsh-bolo starts sending finished goods before you ask for them.",
+            'hostile':  "Marsh-bolo's gano stops offering fair trades. What they send now, they send to take.",
+            'reconcile':"You give without expecting sibi in return. Marsh-bolo lowers its guard.",
+            'expel':    "A yaka is issued. Marsh-bolo's workshops close their gates to your bolo.",
+            'kindred':  "Marsh-bolo's gano recognises a fellow craft-minded bolo — the trade goes easier from here.",
+        },
+        'Grove-bolo': {
+            'first':    "Grove-bolo sends a small party — they keep close counts of everything, taku-fashion, and watch how you count too.",
+            'repeat':   ["Grove-bolo's counters return, still watching.",
+                         "Grove-bolo sends its tally-keepers again, taku ledgers in hand.",
+                         "Another careful delegation from Grove-bolo, counting as they walk."],
+            'welcome':  "You give more than the taku would strictly allow. Grove-bolo studies you for a long moment before accepting.",
+            'trade':    "An exact trade, nothing over. Grove-bolo approves of the precision.",
+            'turnAway': "You send them away empty-handed. Grove-bolo records it — they always record it.",
+            'ally':     "Grove-bolo's caution finally breaks. They begin sharing surplus they'd normally hoard.",
+            'hostile':  "Grove-bolo's counters stop coming. Their taku now excludes your bolo entirely.",
+            'reconcile':"Patient, exact generosity — the only kind Grove-bolo trusts — wins them back.",
+            'expel':    "A yaka is issued. Grove-bolo strikes your bolo from its taku for good.",
+            'kindred':  "Grove-bolo recognises its own caution mirrored back — the counting relaxes, just slightly.",
+        },
+    },
+}
+# Tuning history (applies to both packs — shared mechanic constants):
+# started with 5 visitors / ±60 thresholds / 300-tick cooldown, matching old
+# anonymous-traveller cadence — that produced ZERO allies and ZERO hostiles
+# across 75 test runs (15 x 5 strategy combos). Typical win time is 400-750s,
+# so 5 names sharing a 30s cooldown means each visitor is only seen 2-3 times
+# per playthrough — never enough reps to cross a ±40/60 threshold. Cut to 3
+# names, halved the cooldown, and roughly doubled trust deltas (see
+# resolve_visit) so a consistent playstyle can actually resolve an arc
+# (ally or grudge) within one game.
+
+def new_visitors(pack):
+    return [{'name': v['name'], 'nima': v['nima'], 'trust': 0, 'visits': 0,
+             'met': False, 'ally': False, 'hostile': False, 'lost': False,
+             'kindredShown': False}
+            for v in pack['visitors']]
+
+def pick_visit_target(G):
+    pool = [v for v in G['visitors'] if not v['hostile'] and not v['lost']]
+    if not pool:
+        return None
+    unmet = [v for v in pool if not v['met']]
+    if unmet:
+        return unmet[0]  # first-time intros before repeat visits
+    return min(pool, key=lambda v: v['visits'])  # spread visits round-robin
+
+def visit_choice(G, strategy, v):
+    """Which response a given 'social strategy' picks, among what's
+    affordable right now. Mirrors weighted_identity_action's pattern of only
+    choosing among currently-viable options."""
+    can_welcome = G['kodu'] >= 10 and G['sibi'] >= 4
+    can_trade = G['sibi'] >= 6
+    if strategy == 'generous':
+        if can_welcome: return 'welcome'
+        if can_trade: return 'trade'
+        return 'turnAway'
+    if strategy == 'guarded':
+        if v['trust'] < 0 and can_welcome: return 'welcome'  # repair only when already sour
+        if can_trade: return 'trade'
+        return 'turnAway'
+    if strategy == 'random':
+        opts = ['turnAway']
+        if can_welcome: opts.append('welcome')
+        if can_trade: opts.append('trade')
+        return random.choice(opts)
+    return 'turnAway'  # 'neglect' / unrecognised strategy
+
+def resolve_visit(G, v, choice, M, pack):
+    flavor = pack['flavor'].get(v['name'], {})
+    if not v['met']:
+        intro = flavor.get('first')
+    else:
+        repeats = flavor.get('repeat') or []
+        intro = repeats[v['visits'] % len(repeats)] if repeats else None
+    if intro:
+        M['visitorMilestones'].append((G['tick'], intro))
+    v['met'] = True
+    v['visits'] += 1
+
+    # Kindred-nima affinity (v2+): once the player's own nima is assigned, a
+    # visitor sharing that nima gains trust faster and forgives a turnAway
+    # more easily — "kindred bolos recognise their own." This is the actual
+    # replayability lever: which visitor gets the boost depends on how this
+    # particular run's nima was earned.
+    affinity = pack.get('affinity_multiplier')
+    kindred = bool(affinity and G.get('nimaId') and v['nima'] == G['nimaId'])
+    if kindred and not v['kindredShown']:
+        v['kindredShown'] = True
+        if flavor.get('kindred'):
+            M['visitorMilestones'].append((G['tick'], flavor['kindred']))
+
+    if choice == 'welcome':
+        G['kodu'] -= 10
+        G['sibi'] -= 4
+        delta = 20 * affinity if kindred else 20
+        v['trust'] = min(100, v['trust'] + delta)
+        G['munu'] = min(G['munu'] + munu_mult(G) * 4, G['munuMax'])
+        G['sila'] = min(G['sila'] + 2, G['silaMax'])
+    elif choice == 'trade':
+        G['sibi'] -= 6
+        delta = 8 * affinity if kindred else 8
+        v['trust'] = min(100, v['trust'] + delta)
+        G['munu'] = min(G['munu'] + munu_mult(G) * 2, G['munuMax'])
+    else:  # turnAway
+        delta = 6 * 0.5 if kindred else 6  # kindred bolos are more forgiving
+        v['trust'] = max(-100, v['trust'] - delta)
+    if choice in flavor:
+        M['visitorMilestones'].append((G['tick'], flavor[choice]))
+
+    if v['trust'] >= pack['ally_threshold'] and not v['ally']:
+        v['ally'] = True
+        M['visitorMilestones'].append((G['tick'], flavor.get('ally', f"ALLY: {v['name']}")))
+    if v['trust'] <= pack['hostile_threshold'] and not v['hostile']:
+        v['hostile'] = True
+        M['visitorMilestones'].append((G['tick'], flavor.get('hostile', f"HOSTILE: {v['name']}")))
+
+def process_visitors(G, social_strategy, M, pack):
+    if G['tick'] - G['lastVisitTick'] < pack['visit_cooldown']:
+        return
+    if G['sila'] < 5:
+        return
+    v = pick_visit_target(G)
+    if v is None:
+        return
+    G['lastVisitTick'] = G['tick']
+    choice = visit_choice(G, social_strategy, v)
+    resolve_visit(G, v, choice, M, pack)
+
+def process_grudges(G, conflict_strategy, M, pack):
+    hostiles = [v for v in G['visitors'] if v['hostile']]
+    if not hostiles:
+        return
+    if G['tick'] % 20 == 0:
+        G['kodu'] = max(0, G['kodu'] - len(hostiles) * 0.3)  # same drain as one bandit
+    if conflict_strategy == 'neglect':
+        return
+    target = hostiles[0]
+    flavor = pack['flavor'].get(target['name'], {})
+    if conflict_strategy == 'diplomatic' and G['kodu'] >= 25:
+        G['kodu'] -= 25
+        target['hostile'] = False
+        target['trust'] = 10
+        M['reconciled'] += 1
+        M['visitorMilestones'].append((G['tick'], flavor.get('reconcile', f"RECONCILED: {target['name']}")))
+    elif conflict_strategy == 'aggressive' and G['munu'] >= 10:
+        G['munu'] -= 10
+        target['hostile'] = False
+        target['lost'] = True
+        M['expelled'] += 1
+        M['visitorMilestones'].append((G['tick'], flavor.get('expel', f"EXPELLED: {target['name']}")))
+
+def ally_gifts(G):
+    allies = [v for v in G['visitors'] if v['ally']]
+    if allies and G['tick'] % 10 == 0:
+        G['kodu'] = min(G['kodu'] + len(allies) * 0.15, G['koduMax'])
+
 # ── SINGLE RUN ───────────────────────────────────────────────────────────────
 
 def run_once(chosen_nima=None, prefs=None, verbose=False, seed=None):
@@ -696,6 +988,86 @@ def run_once(chosen_nima=None, prefs=None, verbose=False, seed=None):
             return G
 
     return G  # timed out
+
+def run_once_social(chosen_nima=None, prefs=None, social_strategy='generous',
+                     conflict_strategy='diplomatic', pack='v2', verbose=False, seed=None):
+    """Same as run_once, plus the visitor relationship layer. Kept as a
+    separate function (rather than a flag on run_once) so the baseline sim
+    above is provably untouched. `pack` selects a VISITOR_PACKS entry —
+    defaults to the latest ('v2'); pass 'v1' to reproduce the earlier
+    prototype for direct comparison."""
+    if seed is not None:
+        random.seed(seed)
+    P = VISITOR_PACKS[pack]
+    G = new_game(chosen_nima)
+    G['visitors'] = new_visitors(P)
+    G['lastVisitTick'] = 0
+    last_action_tick = -5
+    action_cooldown = 3
+
+    def row(label=""):
+        print(f"{G['tick']:>6} {G['tick']/TICK_RATE:>6.0f}s tut={G['tutStage']:>1} ph={G['phase']} "
+              f"ibu={G['ibu']:>4.0f} kodu={G['kodu']:>6.1f} sibi={G['sibi']:>5.1f} munu={G['munu']:>5.1f} "
+              f"grip={G['machineGrip']:>5.1f} | {label}")
+
+    for _ in range(MAX_TICKS):
+        tick(G)
+        process_visitors(G, social_strategy, G['metrics'], P)
+        process_grudges(G, conflict_strategy, G['metrics'], P)
+        ally_gifts(G)
+        t = G['tick']
+
+        while G['events']:
+            evtick, label = G['events'].pop(0)
+            if verbose: row(label)
+        while G['metrics']['visitorMilestones']:
+            evtick, label = G['metrics']['visitorMilestones'].pop(0)
+            if verbose: row(label)
+
+        if t - last_action_tick >= action_cooldown:
+            action = ai_action(G, prefs)
+            if action is None:
+                G['metrics']['idleTicks'] += 1
+            elif do_action(G, action):
+                last_action_tick = t
+                G['metrics']['totalActions'] += 1
+                G['metrics']['actionCounts'][action] = G['metrics']['actionCounts'].get(action, 0) + 1
+
+        if verbose and t % DEBUG_INTERVAL == 0:
+            row(f"--- nima={G['nimaId']} farmLv={G['farmLv']} sibiLv={G['sibiLv']} "
+                f"trico={G['tricoCount']} tega={G['tegaCount']} sumi={G['sumiCount']} "
+                f"bandits={len(G['bandits'])} grudges={sum(1 for v in G['visitors'] if v['hostile'])}")
+
+        if G['asaDone']:
+            if verbose:
+                row("*** ASA'DALA — THE MACHINE IS GONE ***")
+            return G
+
+    return G  # timed out
+
+def summarize_social(runs, label):
+    print("\n" + "=" * 78)
+    print(f"SOCIAL LAYER SUMMARY: {label} ({len(runs)} runs)")
+    print("=" * 78)
+    wins = [g for g in runs if g['asaDone']]
+    print(f"Wins: {len(wins)}/{len(runs)}", end="")
+    if wins:
+        times = [g['tick'] / TICK_RATE for g in wins]
+        print(f"   win time median={statistics.median(times):.0f}s max={max(times):.0f}s")
+    else:
+        print()
+
+    allies = [sum(1 for v in g['visitors'] if v['ally']) for g in runs]
+    hostile_ever = [sum(1 for v in g['visitors'] if v['hostile'] or v['lost']) for g in runs]
+    lost = [sum(1 for v in g['visitors'] if v['lost']) for g in runs]
+    reconciled = [g['metrics']['reconciled'] for g in runs]
+    kodu_zero = [g['metrics']['koduZeroTicks'] for g in runs]
+    roster_size = len(runs[0]['visitors'])
+    print(f"Allies at end:        median={statistics.median(allies):.1f}  max={max(allies)}  (of {roster_size})")
+    print(f"Ever hostile/lost:    median={statistics.median(hostile_ever):.1f}  max={max(hostile_ever)}")
+    print(f"Permanently lost:     median={statistics.median(lost):.1f}  max={max(lost)}")
+    print(f"Reconciled count:     median={statistics.median(reconciled):.1f}")
+    print(f"Ticks at 0 kodu:      median={statistics.median(kodu_zero):.0f}  max={max(kodu_zero)}  (soft-lock proxy)")
 
 # ── MULTI-RUN ANALYSIS ───────────────────────────────────────────────────────
 
@@ -802,3 +1174,52 @@ if __name__ == '__main__':
 
     print("\n\n=== One verbose run (undecided nima, balanced AI, seed=42) for a readable trace ===")
     run_once(chosen_nima=None, verbose=True, seed=42)
+
+    # ── VISITOR / RELATIONSHIP LAYER PROTOTYPE ──────────────────────────────
+    print("\n\n" + "#" * 78)
+    print("# VISITOR LAYER — narrative relationship prototype")
+    print("#" * 78)
+    N_SOCIAL = 15
+    scenarios = [
+        ('generous',  'diplomatic'),
+        ('guarded',   'diplomatic'),
+        ('random',    'diplomatic'),
+        ('guarded',   'aggressive'),
+        ('random',    'neglect'),   # stress test: never resolves grudges
+    ]
+
+    for pack_id in ['v1', 'v2']:
+        print(f"\n--- pack {pack_id}: {VISITOR_PACKS[pack_id]['label']} ---")
+        for social, conflict in scenarios:
+            runs = [run_once_social(social_strategy=social, conflict_strategy=conflict, pack=pack_id, seed=3000 + i)
+                    for i in range(N_SOCIAL)]
+            summarize_social(runs, f"[{pack_id}] social={social} conflict={conflict}")
+
+    # v2-only: does the kindred-nima affinity mechanic actually change outcomes
+    # depending on which nima the run ends up with? This is the concrete test
+    # of the "will it help replayability" claim — same generous strategy,
+    # only chosen_nima differs. Compared WITHIN each run (kindred visitor's
+    # trust vs the average of the other two) rather than across runs, since
+    # different nimas produce different game lengths on their own (eco/craft
+    # games run longer than agro/anarcho ones — see the balance sim above),
+    # which would otherwise confound a same-strategy ally-count comparison.
+    print("\n\n" + "#" * 78)
+    print("# v2 AFFINITY CHECK — same 'generous' strategy, different chosen_nima")
+    print("#" * 78)
+    for nima_choice in ['eco', 'craft', 'hash', 'agro']:  # agro has no matching visitor (control)
+        runs = [run_once_social(chosen_nima=nima_choice, social_strategy='generous',
+                                 conflict_strategy='diplomatic', pack='v2', seed=4000 + i)
+                for i in range(N_SOCIAL)]
+        kindred_trust, other_trust = [], []
+        for g in runs:
+            for v in g['visitors']:
+                (kindred_trust if v['nima'] == nima_choice else other_trust).append(v['trust'])
+        k_avg = statistics.mean(kindred_trust) if kindred_trust else None
+        o_avg = statistics.mean(other_trust) if other_trust else None
+        k_str = f"{k_avg:6.1f}" if k_avg is not None else "  n/a "
+        print(f"  chosen_nima={nima_choice:6s}  kindred-visitor avg trust={k_str}   "
+              f"other-two avg trust={o_avg:6.1f}   win-time median="
+              f"{statistics.median(g['tick']/TICK_RATE for g in runs):.0f}s")
+
+    print("\n\n=== One verbose social run, pack=v2, generous/diplomatic, seed=42 ===")
+    run_once_social(social_strategy='generous', conflict_strategy='diplomatic', pack='v2', verbose=True, seed=42)
